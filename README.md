@@ -1,2 +1,2 @@
 # SMART-e-learning
-Smart e-learning platform that personalizes learning for each student using activity/attendance/results analytics, with dashboards for teachers and parents and an intelligent recommendation + alert system
+An intelligent e-learning platform that enables teachers to publish lessons (PDF/video), exercises, and quizzes, while students learn at their own pace. The platform analyzes student results, learning time, errors, attendance, and engagement to recommend targeted content (extra lessons/exercises) and trigger alerts (performance drop, repeated absence, delays). Teachers and parents get dashboards to monitor progress and detect weaknesses early.
