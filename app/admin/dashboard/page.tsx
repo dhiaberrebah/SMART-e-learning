@@ -1,239 +1,189 @@
 import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
 import Link from 'next/link'
 
 export default async function AdminDashboard() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user) {
-    redirect('/login')
+  const [
+    { count: totalUsers },
+    { count: teachersCount },
+    { count: parentsCount },
+    { count: adminsCount },
+    { count: totalStudents },
+    { count: totalClasses },
+    { count: studentsWithClass },
+    { data: recentUsers },
+    { data: recentStudents },
+  ] = await Promise.all([
+    supabase.from('profiles').select('*', { count: 'exact', head: true }),
+    supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'teacher'),
+    supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'parent'),
+    supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'admin'),
+    supabase.from('students').select('*', { count: 'exact', head: true }),
+    supabase.from('classes').select('*', { count: 'exact', head: true }),
+    supabase.from('students').select('*', { count: 'exact', head: true }).not('class_id', 'is', null),
+    supabase
+      .from('profiles')
+      .select('id, full_name, email, role, created_at')
+      .order('created_at', { ascending: false })
+      .limit(5),
+    supabase
+      .from('students')
+      .select('id, full_name, student_number, created_at, class:classes(name)')
+      .order('created_at', { ascending: false })
+      .limit(5),
+  ])
+
+  const getRoleLabel = (role: string) => {
+    const labels: Record<string, string> = {
+      admin: 'Administrateur',
+      teacher: 'Enseignant',
+      parent: 'Parent',
+    }
+    return labels[role] || role
   }
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') {
-    redirect('/')
+  const getRoleBadge = (role: string) => {
+    const badges: Record<string, string> = {
+      admin: 'bg-red-100 text-red-700',
+      teacher: 'bg-green-100 text-green-700',
+      parent: 'bg-blue-100 text-blue-700',
+    }
+    return badges[role] || 'bg-gray-100 text-gray-700'
   }
 
-  const { count: teachersCount } = await supabase
-    .from('profiles')
-    .select('*', { count: 'exact', head: true })
-    .eq('role', 'teacher')
+  const stats = [
+    { label: 'Total utilisateurs', value: totalUsers || 0, color: 'bg-indigo-500', icon: <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>, href: '/admin/users' },
+    { label: 'Enseignants', value: teachersCount || 0, color: 'bg-emerald-500', icon: <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>, href: '/admin/users' },
+    { label: 'Parents', value: parentsCount || 0, color: 'bg-blue-500', icon: <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>, href: '/admin/users' },
+    { label: 'Élèves', value: totalStudents || 0, color: 'bg-purple-500', icon: <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" /></svg>, href: '/admin/students' },
+    { label: 'Classes', value: totalClasses || 0, color: 'bg-amber-500', icon: <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>, href: '/admin/classes' },
+  ]
 
-  const { count: parentsCount } = await supabase
-    .from('profiles')
-    .select('*', { count: 'exact', head: true })
-    .eq('role', 'parent')
-
-  const { count: totalUsers } = await supabase
-    .from('profiles')
-    .select('*', { count: 'exact', head: true })
-
-  const handleSignOut = async () => {
-    'use server'
-    const supabase = await createClient()
-    await supabase.auth.signOut()
-    redirect('/')
-  }
+  const quickActions = [
+    { href: '/admin/users/add', label: 'Ajouter un utilisateur', color: 'bg-indigo-600 hover:bg-indigo-700' },
+    { href: '/admin/students/add', label: 'Ajouter un élève', color: 'bg-purple-600 hover:bg-purple-700' },
+    { href: '/admin/classes/add', label: 'Créer une classe', color: 'bg-amber-600 hover:bg-amber-700' },
+    { href: '/admin/announcements/add', label: 'Nouvel événement', color: 'bg-teal-600 hover:bg-teal-700' },
+  ]
 
   return (
-    <div className="min-h-screen bg-gray-50" dir="rtl">
-      <nav className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <h1 className="text-xl font-bold text-indigo-600">لوحة تحكم إدارة المدرسة</h1>
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-gray-700">{profile?.full_name}</span>
-              <form action={handleSignOut}>
-                <button
-                  type="submit"
-                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700"
-                >
-                  تسجيل الخروج
-                </button>
-              </form>
+    <div className="p-6 max-w-7xl mx-auto">
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-gray-900">Tableau de bord</h1>
+        <p className="text-gray-500 mt-1">
+          Bienvenue — {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+        </p>
+      </div>
+
+      {/* Stats grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
+        {stats.map((s) => (
+          <Link key={s.label} href={s.href || '#'} className="bg-white rounded-xl shadow-sm p-4 hover:shadow-md transition-shadow">
+            <div className={`w-10 h-10 ${s.color} rounded-xl flex items-center justify-center mb-3`}>
+              {s.icon}
             </div>
-          </div>
+            <p className="text-2xl font-bold text-gray-900">{s.value}</p>
+            <p className="text-xs text-gray-500 mt-0.5 leading-tight">{s.label}</p>
+            {s.sub && <p className="text-xs text-gray-400 mt-0.5">{s.sub}</p>}
+          </Link>
+        ))}
+      </div>
+
+      {/* Quick actions */}
+      <div className="mb-8">
+        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Actions rapides</h2>
+        <div className="flex flex-wrap gap-3">
+          {quickActions.map((a) => (
+            <Link
+              key={a.href}
+              href={a.href}
+              className={`px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors ${a.color}`}
+            >
+              + {a.label}
+            </Link>
+          ))}
         </div>
-      </nav>
+      </div>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-900">مرحباً، {profile?.full_name}</h2>
-          <p className="text-gray-600 mt-1">إدارة شاملة للمدرسة والمستخدمين</p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white p-6 rounded-lg shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">إجمالي المستخدمين</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">{totalUsers || 0}</p>
-              </div>
-              <div className="bg-indigo-100 p-3 rounded-full">
-                <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-              </div>
-            </div>
+      {/* Tables */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Recent users */}
+        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b">
+            <h2 className="font-semibold text-gray-900">Derniers utilisateurs</h2>
+            <Link href="/admin/users" className="text-sm text-indigo-600 hover:underline">Voir tout</Link>
           </div>
-
-          <div className="bg-white p-6 rounded-lg shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">المعلمون</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">{teachersCount || 0}</p>
+          <div className="divide-y divide-gray-50">
+            {recentUsers?.map((u) => (
+              <div key={u.id} className="flex items-center gap-3 px-5 py-3">
+                <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                  <span className="text-indigo-700 text-xs font-bold">{u.full_name?.charAt(0)}</span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-gray-900 truncate">{u.full_name}</p>
+                  <p className="text-xs text-gray-400 truncate">{u.email}</p>
+                </div>
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${getRoleBadge(u.role)}`}>
+                  {getRoleLabel(u.role)}
+                </span>
               </div>
-              <div className="bg-green-100 p-3 rounded-full">
-                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                </svg>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-lg shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">أولياء الأمور</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">{parentsCount || 0}</p>
-              </div>
-              <div className="bg-blue-100 p-3 rounded-full">
-                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-lg shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">الفصول الدراسية</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">0</p>
-              </div>
-              <div className="bg-yellow-100 p-3 rounded-full">
-                <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                </svg>
-              </div>
-            </div>
+            ))}
+            {!recentUsers?.length && (
+              <p className="text-sm text-gray-400 text-center py-6">Aucun utilisateur</p>
+            )}
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <Link href="/admin/users" className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition-shadow">
-            <div className="flex items-center mb-4">
-              <div className="bg-indigo-100 p-3 rounded-lg">
-                <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
+        {/* Recent students */}
+        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b">
+            <h2 className="font-semibold text-gray-900">Derniers élèves</h2>
+            <Link href="/admin/students" className="text-sm text-indigo-600 hover:underline">Voir tout</Link>
+          </div>
+          <div className="divide-y divide-gray-50">
+            {recentStudents?.map((s: any) => (
+              <div key={s.id} className="flex items-center gap-3 px-5 py-3">
+                <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
+                  <span className="text-purple-700 text-xs font-bold">{s.full_name?.charAt(0)}</span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-gray-900 truncate">{s.full_name}</p>
+                  <p className="text-xs text-gray-400">{s.student_number || 'N° —'}</p>
+                </div>
+                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                  {s.class?.name || 'Sans classe'}
+                </span>
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mr-4">إدارة المستخدمين</h3>
-            </div>
-            <p className="text-gray-600 text-sm mb-4">إضافة وتعديل وحذف المعلمين وأولياء الأمور</p>
-            <span className="text-indigo-600 hover:text-indigo-700 text-sm font-medium">
-              إدارة المستخدمين ←
-            </span>
-          </Link>
-
-          <Link href="/admin/classes" className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition-shadow">
-            <div className="flex items-center mb-4">
-              <div className="bg-green-100 p-3 rounded-lg">
-                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mr-4">إدارة الفصول</h3>
-            </div>
-            <p className="text-gray-600 text-sm mb-4">إنشاء وتنظيم الفصول الدراسية والمواد</p>
-            <span className="text-green-600 hover:text-green-700 text-sm font-medium">
-              إدارة الفصول ←
-            </span>
-          </Link>
-
-          <Link href="/admin/students" className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition-shadow">
-            <div className="flex items-center mb-4">
-              <div className="bg-teal-100 p-3 rounded-lg">
-                <svg className="w-6 h-6 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mr-4">إدارة الطلاب</h3>
-            </div>
-            <p className="text-gray-600 text-sm mb-4">تسجيل وإدارة بيانات الطلاب</p>
-            <span className="text-teal-600 hover:text-teal-700 text-sm font-medium">
-              إدارة الطلاب ←
-            </span>
-          </Link>
-
-          <Link href="/admin/attendance" className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition-shadow">
-            <div className="flex items-center mb-4">
-              <div className="bg-blue-100 p-3 rounded-lg">
-                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mr-4">متابعة الحضور</h3>
-            </div>
-            <p className="text-gray-600 text-sm mb-4">تسجيل ومتابعة حضور وغياب الطلاب</p>
-            <span className="text-blue-600 hover:text-blue-700 text-sm font-medium">
-              متابعة الحضور ←
-            </span>
-          </Link>
-
-          <Link href="/admin/reports" className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition-shadow">
-            <div className="flex items-center mb-4">
-              <div className="bg-purple-100 p-3 rounded-lg">
-                <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mr-4">التقارير والإحصائيات</h3>
-            </div>
-            <p className="text-gray-600 text-sm mb-4">عرض تقارير شاملة وإحصائيات المدرسة</p>
-            <span className="text-purple-600 hover:text-purple-700 text-sm font-medium">
-              عرض التقارير ←
-            </span>
-          </Link>
-
-          <Link href="/admin/announcements" className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition-shadow">
-            <div className="flex items-center mb-4">
-              <div className="bg-yellow-100 p-3 rounded-lg">
-                <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mr-4">الإعلانات</h3>
-            </div>
-            <p className="text-gray-600 text-sm mb-4">إرسال إعلانات وتنبيهات للمستخدمين</p>
-            <span className="text-yellow-600 hover:text-yellow-700 text-sm font-medium">
-              إدارة الإعلانات ←
-            </span>
-          </Link>
-
-          <Link href="/admin/settings" className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition-shadow">
-            <div className="flex items-center mb-4">
-              <div className="bg-gray-100 p-3 rounded-lg">
-                <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mr-4">الإعدادات</h3>
-            </div>
-            <p className="text-gray-600 text-sm mb-4">إعدادات النظام والمدرسة العامة</p>
-            <span className="text-gray-600 hover:text-gray-700 text-sm font-medium">
-              الإعدادات ←
-            </span>
-          </Link>
+            ))}
+            {!recentStudents?.length && (
+              <p className="text-sm text-gray-400 text-center py-6">Aucun élève</p>
+            )}
+          </div>
         </div>
-      </main>
+      </div>
+
+      {/* Summary cards */}
+      <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl p-5 text-white">
+          <p className="text-indigo-200 text-sm mb-1">Élèves inscrits en classe</p>
+          <p className="text-3xl font-bold">{studentsWithClass || 0}</p>
+          <p className="text-indigo-200 text-xs mt-1">sur {totalStudents || 0} élèves total</p>
+        </div>
+        <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl p-5 text-white">
+          <p className="text-emerald-200 text-sm mb-1">Ratio élèves / classe</p>
+          <p className="text-3xl font-bold">
+            {totalClasses && totalStudents ? Math.round((totalStudents || 0) / (totalClasses || 1)) : 0}
+          </p>
+          <p className="text-emerald-200 text-xs mt-1">élèves en moyenne par classe</p>
+        </div>
+        <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-5 text-white">
+          <p className="text-purple-200 text-sm mb-1">Administrateurs</p>
+          <p className="text-3xl font-bold">{adminsCount || 0}</p>
+          <p className="text-purple-200 text-xs mt-1">compte(s) admin actif(s)</p>
+        </div>
+      </div>
     </div>
   )
 }

@@ -2,169 +2,117 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 
-export default async function EditUser({ params }: { params: { id: string } }) {
+async function handleUpdate(formData: FormData) {
+  'use server'
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const userId = formData.get('user_id') as string
+  const fullName = formData.get('full_name') as string
+  const role = formData.get('role') as string
 
-  if (!user) {
-    redirect('/login')
-  }
-
-  const { data: profile } = await supabase
+  const { error } = await supabase
     .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single()
+    .update({ full_name: fullName, role })
+    .eq('id', userId)
 
-  if (profile?.role !== 'admin') {
-    redirect('/')
+  if (error) {
+    redirect('/admin/users/edit/' + userId + '?error=' + encodeURIComponent(error.message))
   }
+  redirect('/admin/users?success=user_updated')
+}
 
+export default async function EditUserPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ error?: string }>
+}) {
+  const { id } = await params
+  const { error: errorParam } = await searchParams
+  const supabase = await createClient()
   const { data: editUser } = await supabase
     .from('profiles')
     .select('*')
-    .eq('id', params.id)
+    .eq('id', id)
     .single()
 
-  if (!editUser) {
-    redirect('/admin/users')
-  }
-
-  const handleUpdateUser = async (formData: FormData) => {
-    'use server'
-    const supabase = await createClient()
-
-    const fullName = formData.get('full_name') as string
-    const role = formData.get('role') as string
-    const userId = formData.get('user_id') as string
-
-    const { error } = await supabase
-      .from('profiles')
-      .update({
-        full_name: fullName,
-        role: role,
-      })
-      .eq('id', userId)
-
-    if (error) {
-      redirect(`/admin/users/edit/${userId}?error=` + encodeURIComponent(error.message))
-    }
-
-    redirect('/admin/users?success=user_updated')
-  }
-
-  const handleSignOut = async () => {
-    'use server'
-    const supabase = await createClient()
-    await supabase.auth.signOut()
-    redirect('/')
-  }
+  if (!editUser) redirect('/admin/users')
 
   return (
-    <div className="min-h-screen bg-gray-50" dir="rtl">
-      <nav className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-4">
-              <Link href="/admin/users" className="text-gray-600 hover:text-gray-900">
-                ← العودة
-              </Link>
-              <h1 className="text-xl font-bold text-indigo-600">تعديل مستخدم</h1>
-            </div>
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-gray-700">{profile?.full_name}</span>
-              <form action={handleSignOut}>
-                <button
-                  type="submit"
-                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700"
-                >
-                  تسجيل الخروج
-                </button>
-              </form>
-            </div>
+    <div className="p-6 max-w-2xl mx-auto">
+      <div className="mb-6 flex items-center gap-3">
+        <Link href="/admin/users" className="text-gray-400 hover:text-gray-600">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+        </Link>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Modifier l&apos;utilisateur</h1>
+          <p className="text-gray-500 text-sm mt-0.5">{editUser.full_name}</p>
+        </div>
+      </div>
+
+      {errorParam && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 text-sm">
+          {decodeURIComponent(errorParam)}
+        </div>
+      )}
+
+      <div className="bg-white rounded-xl shadow-sm p-6">
+        <form action={handleUpdate} className="space-y-5">
+          <input type="hidden" name="user_id" value={editUser.id} />
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Nom complet</label>
+            <input
+              type="text"
+              name="full_name"
+              required
+              defaultValue={editUser.full_name}
+              className="w-full px-4 py-2.5 border border-gray-400 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+            />
           </div>
-        </div>
-      </nav>
 
-      <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-white shadow-md rounded-lg p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-6">تعديل معلومات المستخدم</h2>
-          
-          <form action={handleUpdateUser} className="space-y-6">
-            <input type="hidden" name="user_id" value={editUser.id} />
-            
-            <div>
-              <label htmlFor="full_name" className="block text-sm font-medium text-gray-700 mb-2">
-                الاسم الكامل
-              </label>
-              <input
-                type="text"
-                id="full_name"
-                name="full_name"
-                required
-                defaultValue={editUser.full_name}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                placeholder="أدخل الاسم الكامل"
-              />
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Adresse e-mail</label>
+            <input
+              type="email"
+              disabled
+              defaultValue={editUser.email}
+              className="w-full px-4 py-2.5 border border-gray-400 rounded-lg bg-gray-50 text-gray-400 cursor-not-allowed text-sm"
+            />
+            <p className="text-xs text-gray-400 mt-1">L&apos;adresse e-mail ne peut pas être modifiée</p>
+          </div>
 
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                البريد الإلكتروني
-              </label>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                disabled
-                defaultValue={editUser.email}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
-              />
-              <p className="text-xs text-gray-500 mt-1">لا يمكن تعديل البريد الإلكتروني</p>
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Rôle</label>
+            <select
+              name="role"
+              required
+              defaultValue={editUser.role}
+              className="w-full px-4 py-2.5 border border-gray-400 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+            >
+              <option value="teacher">Enseignant</option>
+              <option value="parent">Parent</option>
+              <option value="admin">Administrateur</option>
+            </select>
+          </div>
 
-            <div>
-              <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-2">
-                الدور
-              </label>
-              <select
-                id="role"
-                name="role"
-                required
-                defaultValue={editUser.role}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              >
-                <option value="teacher">معلم</option>
-                <option value="parent">ولي أمر</option>
-                <option value="admin">مسؤول</option>
-              </select>
-            </div>
+          <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-500 space-y-1">
+            <p>Créé le : {new Date(editUser.created_at).toLocaleDateString('fr-FR')}</p>
+            <p>Mis à jour le : {new Date(editUser.updated_at).toLocaleDateString('fr-FR')}</p>
+          </div>
 
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <h3 className="text-sm font-medium text-gray-700 mb-2">معلومات إضافية</h3>
-              <div className="text-sm text-gray-600 space-y-1">
-                <p>تاريخ الإنشاء: {new Date(editUser.created_at).toLocaleDateString('ar-EG')}</p>
-                <p>آخر تحديث: {new Date(editUser.updated_at).toLocaleDateString('ar-EG')}</p>
-              </div>
-            </div>
-
-            <div className="flex gap-4 pt-4">
-              <button
-                type="submit"
-                className="flex-1 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium"
-              >
-                حفظ التعديلات
-              </button>
-              <Link
-                href="/admin/users"
-                className="flex-1 px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium text-center"
-              >
-                إلغاء
-              </Link>
-            </div>
-          </form>
-        </div>
-      </main>
+          <div className="flex gap-3 pt-2">
+            <button type="submit" className="flex-1 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium text-sm">
+              Enregistrer
+            </button>
+            <Link href="/admin/users" className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium text-sm text-center">
+              Annuler
+            </Link>
+          </div>
+        </form>
+      </div>
     </div>
   )
 }
