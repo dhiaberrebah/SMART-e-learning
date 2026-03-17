@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { notFound } from 'next/navigation'
 import { redirect } from 'next/navigation'
+import AnswersPanel from './AnswersPanel'
 
 async function gradeSubmission(formData: FormData) {
   'use server'
@@ -20,15 +21,22 @@ async function gradeSubmission(formData: FormData) {
   redirect(`/teacher/assessments/${assessmentId}?graded=1`)
 }
 
-export default async function AssessmentDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function AssessmentDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ graded?: string }>
+}) {
   const { id } = await params
+  const sp = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   const db = createServiceClient()
 
   const { data: assessment } = await db
     .from('assessments')
-    .select('id, title, description, status, allow_attachments, created_at')
+    .select('id, title, description, status, allow_attachments, created_at, teacher_id')
     .eq('id', id)
     .eq('teacher_id', user!.id)
     .single()
@@ -37,7 +45,10 @@ export default async function AssessmentDetailPage({ params }: { params: Promise
 
   const [{ data: questions }, { data: submissions }, { data: assignments }] = await Promise.all([
     db.from('assessment_questions').select('*').eq('assessment_id', id).order('position'),
-    db.from('assessment_submissions').select('id, status, total_score, teacher_feedback, submitted_at, student:students(id, full_name, student_number)').eq('assessment_id', id).order('submitted_at', { ascending: false }),
+    db.from('assessment_submissions')
+      .select('id, status, total_score, teacher_feedback, submitted_at, answers, student:students(id, full_name, student_number)')
+      .eq('assessment_id', id)
+      .order('submitted_at', { ascending: false }),
     db.from('assessment_assignments').select('id, class_id, due_at, class:classes(name)').eq('assessment_id', id),
   ])
 
@@ -65,6 +76,12 @@ export default async function AssessmentDetailPage({ params }: { params: Promise
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
+      {sp.graded === '1' && (
+        <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 mb-5 text-sm text-emerald-800">
+          <span>✅</span><span>Note enregistrée avec succès.</span>
+        </div>
+      )}
+
       <div className="flex items-start justify-between mb-6">
         <div>
           <a href="/teacher/assessments" className="text-sm text-blue-600 hover:underline">← Évaluations</a>
@@ -109,7 +126,7 @@ export default async function AssessmentDetailPage({ params }: { params: Promise
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Questions */}
+        {/* Questions (teacher view) */}
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b">
             <h2 className="font-semibold text-gray-900">Questions</h2>
@@ -125,9 +142,11 @@ export default async function AssessmentDetailPage({ params }: { params: Promise
                       <div className="flex items-center gap-2 mt-1">
                         <span className="text-xs text-gray-400">{q.points} pt{q.points !== 1 ? 's' : ''}</span>
                         <span className="text-gray-200">·</span>
-                        <span className="text-xs text-gray-400">{q.question_type === 'multiple_choice' ? 'Choix multiple' : q.question_type === 'text' ? 'Texte libre' : 'Fichier'}</span>
+                        <span className="text-xs text-gray-400">
+                          {q.question_type === 'mcq' ? 'Choix multiple' : 'Texte libre'}
+                        </span>
                       </div>
-                      {q.question_type === 'multiple_choice' && Array.isArray(q.options) && (
+                      {q.question_type === 'mcq' && Array.isArray(q.options) && (
                         <ul className="mt-2 space-y-1">
                           {(q.options as string[]).map((opt: string, oi: number) => (
                             <li key={oi} className={`text-xs px-2 py-1 rounded ${oi === q.correct_option_index ? 'bg-emerald-50 text-emerald-700 font-medium' : 'text-gray-500'}`}>
@@ -159,7 +178,11 @@ export default async function AssessmentDetailPage({ params }: { params: Promise
                   <div className="flex items-start justify-between mb-2">
                     <div>
                       <p className="text-sm font-medium text-gray-900">{s.student?.full_name}</p>
-                      <p className="text-xs text-gray-400">{s.submitted_at ? new Date(s.submitted_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'}</p>
+                      <p className="text-xs text-gray-400">
+                        {s.submitted_at
+                          ? new Date(s.submitted_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+                          : '—'}
+                      </p>
                     </div>
                     <div className="flex items-center gap-2">
                       {s.total_score !== null && s.total_score !== undefined && (
@@ -170,20 +193,45 @@ export default async function AssessmentDetailPage({ params }: { params: Promise
                       </span>
                     </div>
                   </div>
+
+                  {/* Answers panel (client-side collapsible) */}
+                  {s.answers && Object.keys(s.answers).length > 0 && (
+                    <AnswersPanel
+                      answers={s.answers}
+                      questions={questions as any}
+                    />
+                  )}
+
+                  {/* Grading form */}
                   {(s.status === 'submitted' || s.status === 'graded') && (
                     <form action={gradeSubmission} className="mt-3 pt-3 border-t border-gray-100 space-y-2">
                       <input type="hidden" name="submission_id" value={s.id} />
                       <input type="hidden" name="assessment_id" value={id} />
                       <div className="flex gap-2">
-                        <input type="number" name="total_score" defaultValue={s.total_score ?? ''} min={0} max={totalPoints} step={0.5}
+                        <input
+                          type="number"
+                          name="total_score"
+                          defaultValue={s.total_score ?? ''}
+                          min={0}
+                          max={totalPoints}
+                          step={0.5}
                           placeholder={`Note / ${totalPoints}`}
-                          className="flex-1 border border-gray-400 rounded-lg px-2 py-1.5 text-xs focus:ring-1 focus:ring-blue-500" />
-                        <button type="submit" className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-medium rounded-lg hover:bg-emerald-700 transition-colors">
+                          className="flex-1 border border-gray-400 rounded-lg px-2 py-1.5 text-xs focus:ring-1 focus:ring-blue-500"
+                        />
+                        <button
+                          type="submit"
+                          className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-medium rounded-lg hover:bg-emerald-700 transition-colors"
+                        >
                           Enregistrer
                         </button>
                       </div>
-                      <input type="text" name="teacher_feedback" defaultValue={s.teacher_feedback ?? ''} placeholder="Commentaire…"
-                        className="w-full border border-gray-400 rounded-lg px-2 py-1.5 text-xs focus:ring-1 focus:ring-blue-500" />
+                      <input
+                        type="text"
+                        name="teacher_feedback"
+                        defaultValue={s.teacher_feedback ?? ''}
+                        placeholder="Commentaire pour l'élève…"
+                        className="w-full border border-gray-400 rounded-lg px-2 py-1.5 text-xs focus:ring-1 focus:ring-blue-500"
+                      />
                     </form>
                   )}
                 </div>

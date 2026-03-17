@@ -1,26 +1,33 @@
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 
 async function handleAddUser(formData: FormData) {
   'use server'
-  const supabase = await createClient()
-
-  const email = formData.get('email') as string
-  const password = formData.get('password') as string
+  const email    = formData.get('email')     as string
+  const password = formData.get('password')  as string
   const fullName = formData.get('full_name') as string
-  const role = formData.get('role') as string
+  const role     = formData.get('role')      as string
 
-  const { error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: { full_name: fullName, role },
-    },
-  })
+  let errorMsg: string | null = null
 
-  if (error) {
-    redirect('/admin/users/add?error=' + encodeURIComponent(error.message))
+  try {
+    // Service client has persistSession:false → signUp never writes a cookie
+    // so the admin's session is completely unaffected
+    const db = createServiceClient()
+    const { error } = await db.auth.signUp({
+      email,
+      password,
+      options: { data: { full_name: fullName, role } },
+    })
+    if (error) errorMsg = error.message
+  } catch (e: any) {
+    if (e?.digest) throw e
+    errorMsg = e?.message ?? 'Erreur serveur inconnue'
+  }
+
+  if (errorMsg) {
+    redirect('/admin/users/add?error=' + encodeURIComponent(errorMsg))
   }
 
   redirect('/admin/users?success=user_added')

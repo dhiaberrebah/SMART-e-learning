@@ -11,7 +11,7 @@ async function deleteContent(formData: FormData) {
   redirect('/teacher/content')
 }
 
-export default async function TeacherContent({ searchParams }: { searchParams: Promise<{ class_id?: string; subject_id?: string }> }) {
+export default async function TeacherContent({ searchParams }: { searchParams: Promise<{ class_id?: string }> }) {
   const sp = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -20,20 +20,13 @@ export default async function TeacherContent({ searchParams }: { searchParams: P
   const { data: classes } = await db.from('classes').select('id, name').eq('teacher_id', user!.id).order('name')
   const classIds = (classes ?? []).map((c: any) => c.id)
 
-  const { data: subjects } = classIds.length > 0
-    ? await db.from('subjects').select('id, name, class_id').in('class_id', classIds).order('name')
-    : Promise.resolve({ data: [] })
-
   let query = db.from('pedagogical_contents')
-    .select('id, title, description, file_path, mime_type, size_bytes, created_at, class:classes(name), subject:subjects(name)')
+    .select('id, title, description, file_path, mime_type, size_bytes, created_at, class:classes(name)')
     .eq('teacher_id', user!.id)
 
   if (sp.class_id) query = query.eq('class_id', sp.class_id)
-  if (sp.subject_id) query = query.eq('subject_id', sp.subject_id)
 
   const { data: contents } = await query.order('created_at', { ascending: false })
-
-  const filteredSubjects = sp.class_id ? (subjects ?? []).filter((s: any) => s.class_id === sp.class_id) : (subjects ?? [])
 
   const formatSize = (bytes: number | null) => {
     if (!bytes) return null
@@ -73,15 +66,10 @@ export default async function TeacherContent({ searchParams }: { searchParams: P
           <option value="">Toutes les classes</option>
           {(classes as any[] ?? []).map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
-        <select name="subject_id" defaultValue={sp.subject_id ?? ''}
-          className="border border-gray-400 rounded-lg px-3 py-2 text-sm text-gray-900 focus:ring-2 focus:ring-blue-500">
-          <option value="">Toutes les matières</option>
-          {(filteredSubjects as any[]).map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
-        </select>
         <button type="submit" className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
           Filtrer
         </button>
-        {(sp.class_id || sp.subject_id) && (
+        {sp.class_id && (
           <Link href="/teacher/content" className="px-4 py-2 border border-gray-300 text-gray-600 text-sm rounded-lg hover:bg-gray-50 transition-colors">
             Réinitialiser
           </Link>
@@ -99,9 +87,6 @@ export default async function TeacherContent({ searchParams }: { searchParams: P
                   <div className="flex flex-wrap gap-2 mt-1">
                     {c.class?.name && (
                       <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">{c.class.name}</span>
-                    )}
-                    {c.subject?.name && (
-                      <span className="text-xs bg-purple-50 text-purple-700 px-2 py-0.5 rounded-full">{c.subject.name}</span>
                     )}
                   </div>
                   {c.description && <p className="text-sm text-gray-500 mt-2 line-clamp-2">{c.description}</p>}
