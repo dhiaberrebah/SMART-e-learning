@@ -2,175 +2,138 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 
-export default async function AddUser() {
+async function handleAddUser(formData: FormData) {
+  'use server'
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user) {
-    redirect('/login')
+  const email = formData.get('email') as string
+  const password = formData.get('password') as string
+  const fullName = formData.get('full_name') as string
+  const role = formData.get('role') as string
+
+  const { error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: { full_name: fullName, role },
+    },
+  })
+
+  if (error) {
+    redirect('/admin/users/add?error=' + encodeURIComponent(error.message))
   }
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single()
+  redirect('/admin/users?success=user_added')
+}
 
-  if (profile?.role !== 'admin') {
-    redirect('/')
-  }
-
-  const handleAddUser = async (formData: FormData) => {
-    'use server'
-    const supabase = await createClient()
-
-    const email = formData.get('email') as string
-    const password = formData.get('password') as string
-    const fullName = formData.get('full_name') as string
-    const role = formData.get('role') as string
-
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName,
-          role: role,
-        },
-      },
-    })
-
-    if (authError) {
-      redirect('/admin/users/add?error=' + encodeURIComponent(authError.message))
-    }
-
-    redirect('/admin/users?success=user_added')
-  }
-
-  const handleSignOut = async () => {
-    'use server'
-    const supabase = await createClient()
-    await supabase.auth.signOut()
-    redirect('/')
-  }
-
+export default async function AddUserPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>
+}) {
+  const sp = await searchParams
   return (
-    <div className="min-h-screen bg-gray-50" dir="rtl">
-      <nav className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-4">
-              <Link href="/admin/users" className="text-gray-600 hover:text-gray-900">
-                ← العودة
-              </Link>
-              <h1 className="text-xl font-bold text-indigo-600">إضافة مستخدم جديد</h1>
-            </div>
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-gray-700">{profile?.full_name}</span>
-              <form action={handleSignOut}>
-                <button
-                  type="submit"
-                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700"
-                >
-                  تسجيل الخروج
-                </button>
-              </form>
-            </div>
+    <div className="p-6 max-w-2xl mx-auto">
+      <div className="mb-6 flex items-center gap-3">
+        <Link href="/admin/users" className="text-gray-400 hover:text-gray-600">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+        </Link>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Ajouter un utilisateur</h1>
+          <p className="text-gray-500 text-sm mt-0.5">Créer un compte enseignant, admin ou parent</p>
+        </div>
+      </div>
+
+      {sp.error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 text-sm">
+          {decodeURIComponent(sp.error)}
+        </div>
+      )}
+
+      <div className="bg-white rounded-xl shadow-sm p-6">
+        <form action={handleAddUser} className="space-y-5">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Nom complet
+            </label>
+            <input
+              type="text"
+              name="full_name"
+              required
+              placeholder="Entrez le nom complet"
+              className="w-full px-4 py-2.5 border border-gray-400 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+            />
           </div>
-        </div>
-      </nav>
 
-      <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-white shadow-md rounded-lg p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-6">معلومات المستخدم الجديد</h2>
-          
-          <form action={handleAddUser} className="space-y-6">
-            <div>
-              <label htmlFor="full_name" className="block text-sm font-medium text-gray-700 mb-2">
-                الاسم الكامل
-              </label>
-              <input
-                type="text"
-                id="full_name"
-                name="full_name"
-                required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                placeholder="أدخل الاسم الكامل"
-              />
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Adresse e-mail
+            </label>
+            <input
+              type="email"
+              name="email"
+              required
+              placeholder="exemple@ecole.fr"
+              className="w-full px-4 py-2.5 border border-gray-400 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+            />
+          </div>
 
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                البريد الإلكتروني
-              </label>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                placeholder="example@school.com"
-              />
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Mot de passe
+            </label>
+            <input
+              type="password"
+              name="password"
+              required
+              minLength={6}
+              placeholder="Minimum 6 caractères"
+              className="w-full px-4 py-2.5 border border-gray-400 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+            />
+          </div>
 
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                كلمة المرور
-              </label>
-              <input
-                type="password"
-                id="password"
-                name="password"
-                required
-                minLength={6}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                placeholder="أدخل كلمة المرور (6 أحرف على الأقل)"
-              />
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Rôle</label>
+            <select
+              name="role"
+              required
+              className="w-full px-4 py-2.5 border border-gray-400 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+            >
+              <option value="">Choisir un rôle</option>
+              <option value="teacher">Enseignant</option>
+              <option value="parent">Parent</option>
+              <option value="admin">Administrateur</option>
+            </select>
+          </div>
 
-            <div>
-              <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-2">
-                الدور
-              </label>
-              <select
-                id="role"
-                name="role"
-                required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              >
-                <option value="">اختر الدور</option>
-                <option value="teacher">معلم</option>
-                <option value="parent">ولي أمر</option>
-                <option value="admin">مسؤول</option>
-              </select>
-            </div>
+          <div className="flex gap-3 pt-2">
+            <button
+              type="submit"
+              className="flex-1 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium text-sm"
+            >
+              Créer le compte
+            </button>
+            <Link
+              href="/admin/users"
+              className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium text-sm text-center"
+            >
+              Annuler
+            </Link>
+          </div>
+        </form>
+      </div>
 
-            <div className="flex gap-4 pt-4">
-              <button
-                type="submit"
-                className="flex-1 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium"
-              >
-                إضافة المستخدم
-              </button>
-              <Link
-                href="/admin/users"
-                className="flex-1 px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium text-center"
-              >
-                إلغاء
-              </Link>
-            </div>
-          </form>
-        </div>
-
-        <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h3 className="text-sm font-medium text-blue-900 mb-2">ملاحظات:</h3>
-          <ul className="text-sm text-blue-700 space-y-1 list-disc list-inside">
-            <li>سيتم إرسال بريد إلكتروني للمستخدم لتأكيد الحساب</li>
-            <li>كلمة المرور يجب أن تكون 6 أحرف على الأقل</li>
-            <li>يمكن للمستخدم تغيير كلمة المرور لاحقاً</li>
-          </ul>
-        </div>
-      </main>
+      <div className="mt-4 bg-blue-50 border border-blue-100 rounded-lg p-4 text-sm text-blue-700 space-y-1">
+        <p className="font-medium text-blue-900">Remarques :</p>
+        <ul className="list-disc list-inside space-y-0.5">
+          <li>Les comptes <strong>enseignants</strong> et <strong>admins</strong> sont créés uniquement par l&apos;administration</li>
+          <li>Les parents peuvent également s&apos;inscrire eux-mêmes via la page d&apos;inscription publique</li>
+          <li>Un e-mail de confirmation sera envoyé à l&apos;utilisateur</li>
+          <li>Le mot de passe doit comporter au moins 6 caractères</li>
+        </ul>
+      </div>
     </div>
   )
 }
