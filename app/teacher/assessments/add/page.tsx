@@ -6,7 +6,7 @@ import { createClient as createBrowserClient } from '@/lib/supabase/client'
 
 interface Question {
   id: string
-  type: 'multiple_choice' | 'text' | 'file'
+  type: 'multiple_choice' | 'text'
   prompt: string
   options: string[]
   correct_option_index: number | null
@@ -73,9 +73,11 @@ export default function AddAssessmentPage() {
       const qRecords = questions.map((q, pos) => ({
         assessment_id: assessment.id,
         position: pos + 1,
-        question_type: q.type,
         prompt: q.prompt,
-        options: q.type === 'multiple_choice' ? q.options.filter(Boolean) : null,
+        question_type: q.type === 'multiple_choice' ? 'mcq' : 'text',
+        options: q.type === 'multiple_choice'
+          ? q.options.filter(Boolean)
+          : null,
         correct_option_index: q.type === 'multiple_choice' ? q.correct_option_index : null,
         points: q.points,
       }))
@@ -148,11 +150,10 @@ export default function AddAssessmentPage() {
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-sm font-medium text-gray-700">Question {idx + 1}</span>
                   <div className="flex items-center gap-3">
-                    <select value={q.type} onChange={(e) => updateQuestion(q.id, { type: e.target.value as Question['type'] })}
+                    <select value={q.type} onChange={(e) => updateQuestion(q.id, { type: e.target.value as 'multiple_choice' | 'text' })}
                       className="border border-gray-400 rounded-lg px-2 py-1 text-xs focus:ring-1 focus:ring-blue-500">
                       <option value="multiple_choice">Choix multiple</option>
                       <option value="text">Réponse texte</option>
-                      <option value="file">Fichier</option>
                     </select>
                     <input type="number" value={q.points} min={0.5} step={0.5} onChange={(e) => updateQuestion(q.id, { points: parseFloat(e.target.value) })}
                       className="w-16 border border-gray-400 rounded-lg px-2 py-1 text-xs focus:ring-1 focus:ring-blue-500" />
@@ -184,9 +185,6 @@ export default function AddAssessmentPage() {
                 )}
                 {q.type === 'text' && (
                   <p className="text-xs text-gray-400 italic">L'élève saisira sa réponse en texte libre.</p>
-                )}
-                {q.type === 'file' && (
-                  <p className="text-xs text-gray-400 italic">L'élève devra joindre un fichier.</p>
                 )}
               </div>
             ))}

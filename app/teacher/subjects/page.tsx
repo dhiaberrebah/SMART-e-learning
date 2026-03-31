@@ -75,7 +75,7 @@ export default async function TeacherSubjects({ searchParams }: { searchParams: 
                 <Link href={`/teacher/grades?subject_id=${sub.id}`}
                   className="text-xs text-blue-600 hover:underline">Voir notes</Link>
                 <span className="text-gray-300">·</span>
-                <Link href={`/teacher/content?subject_id=${sub.id}`}
+                <Link href={`/teacher/content${sub.class_id ? `?class_id=${sub.class_id}` : ''}`}
                   className="text-xs text-blue-600 hover:underline">Voir cours</Link>
               </div>
             </div>

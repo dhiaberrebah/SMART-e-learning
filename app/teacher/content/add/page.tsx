@@ -1,42 +1,38 @@
 'use client'
 
-import { useState, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useRef, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 export default function AddContentPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [uploadProgress, setUploadProgress] = useState<number | null>(null)
   const [classes, setClasses] = useState<any[]>([])
-  const [subjects, setSubjects] = useState<any[]>([])
   const [selectedClass, setSelectedClass] = useState('')
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
-  const [selectedSubject, setSelectedSubject] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [externalUrl, setExternalUrl] = useState('')
   const [useExternalUrl, setUseExternalUrl] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState<'idle' | 'uploading' | 'done'>('idle')
   const fileRef = useRef<HTMLInputElement>(null)
-  const [loaded, setLoaded] = useState(false)
 
-  const loadData = async () => {
-    if (loaded) return
-    setLoaded(true)
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+  useEffect(() => {
+    const load = async () => {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
 
-    const [{ data: cls }, { data: subs }] = await Promise.all([
-      supabase.from('classes').select('id, name').eq('teacher_id', user.id).order('name'),
-      supabase.from('subjects').select('id, name, class_id').order('name'),
-    ])
-    setClasses(cls ?? [])
-    setSubjects(subs ?? [])
-  }
+      const { data: cls } = await supabase.from('classes').select('id, name').eq('teacher_id', user.id).order('name')
+      setClasses(cls ?? [])
 
-  const filteredSubjects = selectedClass ? subjects.filter((s) => s.class_id === selectedClass) : subjects
+      // Pre-select the class that owns the subject from URL
+    }
+    load()
+  }, [])
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -53,25 +49,24 @@ export default function AddContentPage() {
     let sizeBytes: number | null = null
 
     if (!useExternalUrl && file) {
-      setUploadProgress(0)
-      const ext = file.name.split('.').pop()
-      const path = `${user.id}/${Date.now()}.${ext}`
-      const { data: uploadData, error: upErr } = await supabase.storage
-        .from('content')
-        .upload(path, file, { contentType: file.type, upsert: false })
+      setUploadProgress('uploading')
+      const fd = new FormData()
+      fd.append('file', file)
 
-      if (upErr) {
-        setError(`Erreur upload : ${upErr.message}. Assurez-vous que le bucket "content" existe dans Supabase Storage.`)
+      const res = await fetch('/api/upload', { method: 'POST', body: fd })
+      const json = await res.json()
+
+      if (!res.ok) {
+        setError(json.error ?? 'Erreur lors de l\'upload')
         setLoading(false)
-        setUploadProgress(null)
+        setUploadProgress('idle')
         return
       }
 
-      const { data: urlData } = supabase.storage.from('content').getPublicUrl(uploadData.path)
-      filePath = urlData.publicUrl
-      mimeType = file.type
-      sizeBytes = file.size
-      setUploadProgress(100)
+      filePath = json.url
+      mimeType = json.mimeType
+      sizeBytes = json.size
+      setUploadProgress('done')
     } else if (useExternalUrl && externalUrl.trim()) {
       filePath = externalUrl.trim()
     }
@@ -81,18 +76,17 @@ export default function AddContentPage() {
       description: description || null,
       teacher_id: user.id,
       class_id: selectedClass || null,
-      subject_id: selectedSubject || null,
       file_path: filePath,
       mime_type: mimeType,
       size_bytes: sizeBytes,
     })
 
-    if (dbErr) { setError(dbErr.message); setLoading(false); setUploadProgress(null); return }
+    if (dbErr) { setError(dbErr.message); setLoading(false); setUploadProgress('idle'); return }
     router.push('/teacher/content')
   }
 
   return (
-    <div className="p-6 max-w-2xl mx-auto" onFocus={loadData}>
+    <div className="p-6 max-w-2xl mx-auto">
       <div className="mb-6">
         <a href="/teacher/content" className="text-sm text-blue-600 hover:underline">← Cours & Ressources</a>
         <h1 className="text-2xl font-bold text-gray-900 mt-2">Ajouter une ressource</h1>
@@ -111,23 +105,13 @@ export default function AddContentPage() {
               className="w-full border border-gray-400 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Classe</label>
-              <select value={selectedClass} onChange={(e) => { setSelectedClass(e.target.value); setSelectedSubject('') }}
-                className="w-full border border-gray-400 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                <option value="">Toutes les classes</option>
-                {classes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Matière</label>
-              <select value={selectedSubject} onChange={(e) => setSelectedSubject(e.target.value)}
-                className="w-full border border-gray-400 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                <option value="">Toutes les matières</option>
-                {filteredSubjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Classe</label>
+            <select value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)}
+              className="w-full border border-gray-400 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+              <option value="">Toutes les classes</option>
+              {classes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
           </div>
 
           <div>
@@ -139,7 +123,7 @@ export default function AddContentPage() {
 
           {/* File or URL toggle */}
           <div>
-            <div className="flex gap-4 mb-3">
+            <div className="flex gap-6 mb-3">
               <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
                 <input type="radio" checked={!useExternalUrl} onChange={() => setUseExternalUrl(false)} className="text-blue-600" />
                 Téléverser un fichier
@@ -153,21 +137,27 @@ export default function AddContentPage() {
             {!useExternalUrl ? (
               <div
                 onClick={() => fileRef.current?.click()}
-                className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center cursor-pointer hover:border-blue-300 hover:bg-blue-50/30 transition-colors">
+                className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
+                  file ? 'border-blue-400 bg-blue-50' : 'border-gray-300 hover:border-blue-300 hover:bg-blue-50/30'
+                }`}>
                 {file ? (
-                  <div className="text-sm text-gray-700">
-                    <p className="font-medium">{file.name}</p>
+                  <div className="text-sm">
+                    <p className="font-medium text-gray-900">📄 {file.name}</p>
                     <p className="text-gray-400 mt-0.5">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
-                    <button type="button" onClick={(e) => { e.stopPropagation(); setFile(null) }} className="text-red-400 hover:text-red-600 text-xs mt-1">Supprimer</button>
+                    <button type="button" onClick={(e) => { e.stopPropagation(); setFile(null); setUploadProgress('idle') }}
+                      className="text-red-400 hover:text-red-600 text-xs mt-1">
+                      Supprimer
+                    </button>
                   </div>
                 ) : (
                   <div className="text-gray-400">
-                    <div className="text-2xl mb-1">📁</div>
-                    <p className="text-sm">Cliquer pour sélectionner un fichier</p>
-                    <p className="text-xs mt-1">PDF, Word, Image, Vidéo…</p>
+                    <div className="text-3xl mb-2">📁</div>
+                    <p className="text-sm font-medium">Cliquer pour sélectionner un fichier</p>
+                    <p className="text-xs mt-1 text-gray-400">PDF, Word, Image, Vidéo, Audio…</p>
                   </div>
                 )}
-                <input ref={fileRef} type="file" className="sr-only" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+                <input ref={fileRef} type="file" className="sr-only"
+                  onChange={(e) => { setFile(e.target.files?.[0] ?? null); setUploadProgress('idle') }} />
               </div>
             ) : (
               <input type="url" value={externalUrl} onChange={(e) => setExternalUrl(e.target.value)}
@@ -176,15 +166,19 @@ export default function AddContentPage() {
             )}
           </div>
 
-          {uploadProgress !== null && uploadProgress < 100 && (
-            <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-              <div className="h-full bg-blue-500 rounded-full transition-all" style={{ width: `${uploadProgress}%` }} />
+          {/* Upload progress */}
+          {uploadProgress === 'uploading' && (
+            <div className="flex items-center gap-2 text-sm text-blue-600">
+              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+              </svg>
+              Envoi en cours…
             </div>
           )}
-
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-700">
-            ⚠️ Pour le téléversement de fichiers, créez un bucket public nommé <strong>content</strong> dans Supabase Storage.
-          </div>
+          {uploadProgress === 'done' && (
+            <p className="text-sm text-emerald-600">✅ Fichier enregistré localement.</p>
+          )}
 
           <div className="flex gap-3 pt-2">
             <button type="submit" disabled={loading}
