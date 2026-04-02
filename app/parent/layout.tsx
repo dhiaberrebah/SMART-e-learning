@@ -19,7 +19,7 @@ export default async function ParentLayout({ children }: { children: React.React
     .from('profiles')
     .select('*')
     .eq('id', user.id)
-    .single()
+    .maybeSingle()
 
   if (profile?.role !== 'parent') redirect('/')
 

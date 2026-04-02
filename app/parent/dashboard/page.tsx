@@ -9,7 +9,7 @@ export default async function ParentDashboard() {
     .from('profiles')
     .select('*')
     .eq('id', user!.id)
-    .single()
+    .maybeSingle()
 
   // Get all children of this parent
   const { data: children } = await supabase
@@ -52,6 +52,12 @@ export default async function ParentDashboard() {
     .select('id, title, start_at, location')
     .gte('start_at', new Date().toISOString())
     .order('start_at', { ascending: true })
+    .limit(3)
+
+  const { data: adminMessages } = await supabase
+    .from('admin_broadcast_messages')
+    .select('id, title, created_at')
+    .order('created_at', { ascending: false })
     .limit(3)
 
   // Today's attendance
@@ -99,13 +105,41 @@ export default async function ParentDashboard() {
         </p>
       </div>
 
+      {adminMessages && adminMessages.length > 0 && (
+        <div className="mb-8 rounded-xl border border-indigo-100 bg-indigo-50/60 p-4">
+          <div className="flex items-center justify-between gap-3 mb-2">
+            <h2 className="text-sm font-semibold text-indigo-900">Messages administration</h2>
+            <Link href="/parent/admin-messages" className="text-xs font-medium text-indigo-700 hover:underline">
+              Voir tout
+            </Link>
+          </div>
+          <ul className="space-y-2">
+            {adminMessages.map((m) => (
+              <li key={m.id}>
+                <Link
+                  href="/parent/admin-messages"
+                  className="block text-sm text-indigo-950 hover:text-indigo-700 font-medium"
+                >
+                  {m.title}
+                </Link>
+                <p className="text-xs text-indigo-600/80">
+                  {new Date(m.created_at).toLocaleString('fr-FR')}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {children && children.length === 0 ? (
         <div className="bg-white rounded-xl shadow-sm p-12 text-center">
           <svg className="mx-auto h-12 w-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
           </svg>
           <h3 className="mt-3 text-sm font-semibold text-gray-700">Aucun enfant associé</h3>
-          <p className="mt-1 text-sm text-gray-400">Contactez l&apos;administration pour associer vos enfants à votre compte</p>
+          <p className="mt-1 text-sm text-gray-400">
+            Vérifiez que votre CIN sur la page profil est identique à celui indiqué à l&apos;école. Les enfants apparaissent dès que l&apos;administration les enregistre avec ce CIN, ou après correction du CIN sur votre compte.
+          </p>
         </div>
       ) : (
         <>

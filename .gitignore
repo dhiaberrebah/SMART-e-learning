@@ -42,3 +42,5 @@ yarn-error.log*
 next-env.d.ts
 /public/uploads/content/*
 !/public/uploads/content/.gitkeep
+/public/uploads/supply-invoices/*
+!/public/uploads/supply-invoices/.gitkeep

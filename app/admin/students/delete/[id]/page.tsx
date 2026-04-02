@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import { renumberStudentsSequential } from '@/lib/student-numbers'
 
 async function handleDelete(formData: FormData) {
   'use server'
@@ -15,6 +16,8 @@ async function handleDelete(formData: FormData) {
   if (error) {
     redirect(`/admin/students/delete/${studentId}?error=` + encodeURIComponent(error.message))
   }
+
+  await renumberStudentsSequential(supabase)
   redirect('/admin/students?success=student_deleted')
 }
 
@@ -33,7 +36,7 @@ export default async function DeleteStudentPage({
     .from('students')
     .select(`*, parent:profiles!students_parent_id_fkey(full_name), class:classes(name)`)
     .eq('id', id)
-    .single()
+    .maybeSingle()
 
   if (!student) redirect('/admin/students')
 

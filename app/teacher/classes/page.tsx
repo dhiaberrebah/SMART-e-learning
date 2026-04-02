@@ -19,7 +19,11 @@ export default async function TeacherClasses() {
       ? db.from('students').select('id, class_id').in('class_id', classIds)
       : Promise.resolve({ data: [] }),
     classIds.length > 0
-      ? db.from('subjects').select('id, name, class_id').in('class_id', classIds)
+      ? db
+          .from('subjects')
+          .select('id, name, class_id')
+          .in('class_id', classIds)
+          .eq('teacher_id', user!.id)
       : Promise.resolve({ data: [] }),
   ])
 

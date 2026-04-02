@@ -34,7 +34,7 @@ export default function LoginPage() {
           .from('profiles')
           .select('role')
           .eq('id', data.user.id)
-          .single()
+          .maybeSingle()
 
         if (profile) {
           router.push(`/${profile.role}/dashboard`)

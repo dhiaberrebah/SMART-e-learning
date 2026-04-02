@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/service'
 import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
+import { deductOrderLinesFromStock, restoreOrderLinesToStock } from '@/lib/supply-inventory'
 
 async function updateOrderStatus(formData: FormData) {
   'use server'
@@ -9,11 +10,33 @@ async function updateOrderStatus(formData: FormData) {
   const status = formData.get('status') as string
   const admin_note = formData.get('admin_note') as string
 
-  await db.from('supply_orders').update({
-    status,
-    notes: admin_note || null,
-    updated_at: new Date().toISOString(),
-  }).eq('id', id)
+  const { data: prev } = await db
+    .from('supply_orders')
+    .select('status, stock_deducted, items')
+    .eq('id', id)
+    .maybeSingle()
+
+  if (!prev) redirect('/admin/supplies/orders')
+
+  let stock_deducted = Boolean(prev.stock_deducted)
+
+  if (status === 'delivered' && prev.status !== 'delivered' && !prev.stock_deducted) {
+    await deductOrderLinesFromStock(db, prev.items)
+    stock_deducted = true
+  } else if (prev.status === 'delivered' && status !== 'delivered' && prev.stock_deducted) {
+    await restoreOrderLinesToStock(db, prev.items)
+    stock_deducted = false
+  }
+
+  await db
+    .from('supply_orders')
+    .update({
+      status,
+      notes: admin_note || null,
+      stock_deducted,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id)
 
   redirect(`/admin/supplies/orders/${id}?updated=1`)
 }
@@ -40,9 +63,11 @@ export default async function AdminOrderDetail({
 
   const { data: order } = await db
     .from('supply_orders')
-    .select('id, status, total_amount, notes, created_at, updated_at, items, student:students(full_name, class:classes(name)), parent:profiles!parent_id(full_name, email)')
+    .select(
+      'id, status, total_amount, notes, created_at, updated_at, items, invoice_path, invoice_uploaded_at, student:students(full_name, class:classes(name)), parent:profiles!parent_id(full_name, email)'
+    )
     .eq('id', id)
-    .single()
+    .maybeSingle()
 
   if (!order) notFound()
 
@@ -115,6 +140,10 @@ export default async function AdminOrderDetail({
         {/* Update status */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
           <h2 className="font-semibold text-gray-800 text-sm mb-3">Modifier le statut</h2>
+          <p className="text-xs text-gray-500 mb-3">
+            Après vérification du paiement sur le justificatif ci-dessous, passez la commande en <strong>Livrée</strong>{' '}
+            (les stocks sont déduits à la livraison).
+          </p>
           <form action={updateOrderStatus} className="space-y-3">
             <input type="hidden" name="id" value={id} />
             <div>
@@ -138,6 +167,49 @@ export default async function AdminOrderDetail({
             </button>
           </form>
         </div>
+      </div>
+
+      {/* Justificatif paiement (fichier local) */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-5">
+        <h2 className="font-semibold text-gray-800 text-sm mb-2">Justificatif de paiement (facture parent)</h2>
+        {(order as { invoice_path?: string | null }).invoice_path ? (
+          <div className="space-y-3">
+            <p className="text-xs text-gray-500">
+              Téléversé le{' '}
+              {(order as { invoice_uploaded_at?: string | null }).invoice_uploaded_at
+                ? new Date((order as { invoice_uploaded_at: string }).invoice_uploaded_at).toLocaleString('fr-FR')
+                : '—'}
+            </p>
+            {(order as { invoice_path: string }).invoice_path.toLowerCase().endsWith('.pdf') ? (
+              <a
+                href={(order as { invoice_path: string }).invoice_path}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-sm font-medium text-indigo-600 hover:underline"
+              >
+                Ouvrir le PDF →
+              </a>
+            ) : (
+              <a
+                href={(order as { invoice_path: string }).invoice_path}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block rounded-lg border border-gray-200 overflow-hidden max-w-md"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={(order as { invoice_path: string }).invoice_path}
+                  alt="Justificatif de paiement"
+                  className="w-full h-auto max-h-80 object-contain bg-gray-50"
+                />
+              </a>
+            )}
+          </div>
+        ) : (
+          <p className="text-sm text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+            Aucun justificatif téléversé par le parent pour l&apos;instant.
+          </p>
+        )}
       </div>
 
       {/* Items */}

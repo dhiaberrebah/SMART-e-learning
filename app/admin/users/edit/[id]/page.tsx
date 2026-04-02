@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import { normalizeParentCin } from '@/lib/parent-cin'
 
 async function handleUpdate(formData: FormData) {
   'use server'
@@ -8,10 +9,22 @@ async function handleUpdate(formData: FormData) {
   const userId = formData.get('user_id') as string
   const fullName = formData.get('full_name') as string
   const role = formData.get('role') as string
+  if (!['teacher', 'parent'].includes(role)) {
+    redirect('/admin/users/edit/' + userId + '?error=' + encodeURIComponent('Rôle non autorisé'))
+  }
+
+  const { data: target } = await supabase.from('profiles').select('role').eq('id', userId).maybeSingle()
+  if (target?.role === 'admin') redirect('/admin/users')
+
+  const cin =
+    role === 'parent' ? normalizeParentCin(formData.get('cin') as string) : null
+  if (role === 'parent' && (!cin || cin.length < 5)) {
+    redirect('/admin/users/edit/' + userId + '?error=' + encodeURIComponent('CIN obligatoire pour un parent (min. 5 caractères).'))
+  }
 
   const { error } = await supabase
     .from('profiles')
-    .update({ full_name: fullName, role })
+    .update({ full_name: fullName, role, cin })
     .eq('id', userId)
 
   if (error) {
@@ -34,9 +47,10 @@ export default async function EditUserPage({
     .from('profiles')
     .select('*')
     .eq('id', id)
-    .single()
+    .maybeSingle()
 
   if (!editUser) redirect('/admin/users')
+  if (editUser.role === 'admin') redirect('/admin/users')
 
   return (
     <div className="p-6 max-w-2xl mx-auto">
@@ -94,8 +108,22 @@ export default async function EditUserPage({
             >
               <option value="teacher">Enseignant</option>
               <option value="parent">Parent</option>
-              <option value="admin">Administrateur</option>
             </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              CIN <span className="text-gray-400 font-normal">(parents uniquement)</span>
+            </label>
+            <input
+              type="text"
+              name="cin"
+              autoComplete="off"
+              defaultValue={(editUser as { cin?: string | null }).cin || ''}
+              placeholder="Numéro CIN du parent"
+              className="w-full px-4 py-2.5 border border-gray-400 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm font-mono uppercase"
+            />
+            <p className="text-xs text-gray-500 mt-1">Laissé vide si le compte est enseignant (sera effacé à l&apos;enregistrement si rôle Enseignant).</p>
           </div>
 
           <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-500 space-y-1">

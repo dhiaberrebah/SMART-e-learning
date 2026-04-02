@@ -6,6 +6,8 @@ async function handleDeactivate(formData: FormData) {
   'use server'
   const supabase = await createClient()
   const userId = formData.get('user_id') as string
+  const { data: t } = await supabase.from('profiles').select('role').eq('id', userId).maybeSingle()
+  if (t?.role === 'admin') redirect('/admin/users')
 
   const { error } = await supabase
     .from('profiles')
@@ -22,6 +24,8 @@ async function handleReactivate(formData: FormData) {
   'use server'
   const supabase = await createClient()
   const userId = formData.get('user_id') as string
+  const { data: t } = await supabase.from('profiles').select('role').eq('id', userId).maybeSingle()
+  if (t?.role === 'admin') redirect('/admin/users')
 
   await supabase
     .from('profiles')
@@ -46,9 +50,10 @@ export default async function DeleteUserPage({
     .from('profiles')
     .select('*')
     .eq('id', id)
-    .single()
+    .maybeSingle()
 
   if (!targetUser) redirect('/admin/users')
+  if (targetUser.role === 'admin') redirect('/admin/users')
 
   const { data: currentUser } = await supabase.auth.getUser()
   if (currentUser.user?.id === id) redirect('/admin/users')
@@ -64,7 +69,6 @@ export default async function DeleteUserPage({
     .eq('teacher_id', id)
 
   const roleLabels: Record<string, string> = {
-    admin: 'Administrateur',
     teacher: 'Enseignant',
     parent: 'Parent',
   }

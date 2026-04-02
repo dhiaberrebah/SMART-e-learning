@@ -14,7 +14,7 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
     .select('id, name, description, grade_level, academic_year')
     .eq('id', id)
     .eq('teacher_id', user!.id)
-    .single()
+    .maybeSingle()
 
   if (!cls) notFound()
 
@@ -22,7 +22,12 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
 
   const [{ data: students }, { data: subjects }, { data: attendance }] = await Promise.all([
     db.from('students').select('id, full_name, student_number, date_of_birth').eq('class_id', id).order('full_name'),
-    db.from('subjects').select('id, name, description').eq('class_id', id).order('name'),
+    db
+      .from('subjects')
+      .select('id, name, description')
+      .eq('class_id', id)
+      .eq('teacher_id', user!.id)
+      .order('name'),
     db.from('attendance').select('date, status, student_id').eq('class_id', id).gte('date', last30).order('date', { ascending: false }),
   ])
 
@@ -151,9 +156,14 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
         {/* Subjects */}
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4 border-b">
-            <h2 className="font-semibold text-gray-900">Matières</h2>
-            <Link href={`/teacher/subjects/add?class_id=${id}`} className="text-xs text-blue-600 hover:underline">+ Ajouter</Link>
+            <h2 className="font-semibold text-gray-900">Mes matières (cette classe)</h2>
           </div>
+          <p className="px-5 py-2 text-xs text-gray-500 border-b border-gray-50 bg-gray-50/50">
+            Définies par l&apos;administration.{' '}
+            <Link href="/teacher/subjects" className="text-blue-600 hover:underline">
+              Voir toutes mes matières
+            </Link>
+          </p>
           <div className="divide-y divide-gray-50">
             {(subjects ?? []).length > 0 ? (
               (subjects as any[]).map((sub) => (
@@ -163,7 +173,9 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
                 </div>
               ))
             ) : (
-              <p className="text-sm text-gray-400 text-center py-6">Aucune matière</p>
+              <p className="text-sm text-gray-400 text-center py-6 px-4">
+                Aucune matière ne vous est assignée pour cette classe.
+              </p>
             )}
           </div>
         </div>

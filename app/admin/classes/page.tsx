@@ -1,108 +1,259 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
+import { PRIMARY_GRADE_OPTIONS_TUNISIA } from '@/lib/grade-levels'
 
-export default async function ClassesPage() {
+function applyClassFilters(rows: any[], teacher: string, niveau: string) {
+  let list = rows
+  if (teacher === 'none') list = list.filter((c) => c.teacher_id == null)
+  else if (teacher) list = list.filter((c) => c.teacher_id === teacher)
+  if (niveau === '__none__') {
+    list = list.filter((c) => !(c.grade_level && String(c.grade_level).trim()))
+  } else if (niveau) {
+    list = list.filter((c) => (c.grade_level || '') === niveau)
+  }
+  return list
+}
+
+function buildClassesListUrl(params: Record<string, string | undefined>) {
+  const q = new URLSearchParams()
+  if (params.success) q.set('success', params.success)
+  if (params.teacher) q.set('teacher', params.teacher)
+  if (params.niveau) q.set('niveau', params.niveau)
+  const s = q.toString()
+  return s ? `/admin/classes?${s}` : '/admin/classes'
+}
+
+export default async function ClassesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ success?: string; teacher?: string; niveau?: string }>
+}) {
+  const sp = await searchParams
+  const teacherFilter = sp.teacher || ''
+  const niveauFilter = sp.niveau || ''
+
   const supabase = await createClient()
 
-  const { data: classes } = await supabase
-    .from('classes')
-    .select(`
+  const [{ data: allRows }, { data: teachers }] = await Promise.all([
+    supabase
+      .from('classes')
+      .select(
+        `
       *,
       teacher:profiles!classes_teacher_id_fkey(full_name),
       students(count)
-    `)
-    .order('name', { ascending: true })
+    `
+      )
+      .order('name', { ascending: true }),
+    supabase.from('profiles').select('id, full_name').eq('role', 'teacher').order('full_name'),
+  ])
 
-  const totalStudents = classes?.reduce(
-    (sum, c) => sum + ((c.students as any)?.[0]?.count || 0),
-    0
-  ) || 0
+  const allClasses = allRows ?? []
+  const classes = applyClassFilters(allClasses, teacherFilter, niveauFilter)
+
+  const baseNiveaux = [...PRIMARY_GRADE_OPTIONS_TUNISIA] as string[]
+  const fromDb = [
+    ...new Set(
+      allClasses
+        .map((c) => c.grade_level)
+        .filter((g): g is string => Boolean(g && String(g).trim()))
+    ),
+  ]
+  const niveauOptions = [...baseNiveaux]
+  for (const g of fromDb) {
+    if (!niveauOptions.includes(g)) niveauOptions.push(g)
+  }
+
+  const totalStudents =
+    classes.reduce((sum, c) => sum + ((c.students as any)?.[0]?.count || 0), 0) || 0
+
+  const assignedInView = classes.filter((c) => c.teacher_id).length
+  const hasActiveFilters = Boolean(teacherFilter || niveauFilter)
+
+  const successMessages: Record<string, string> = {
+    class_added: 'Classe créée avec succès.',
+    class_updated: 'Classe mise à jour.',
+    class_deleted: 'Classe supprimée.',
+  }
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Classes</h1>
           <p className="text-gray-500 mt-1">Gestion des classes et des matières</p>
         </div>
-        <Link href="/admin/classes/add" className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium text-sm">
+        <Link href="/admin/classes/add" className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium text-sm text-center sm:text-left shrink-0">
           + Ajouter une classe
         </Link>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="bg-white rounded-xl shadow-sm p-4">
-          <p className="text-sm text-gray-500">Total classes</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{classes?.length || 0}</p>
+      {sp.success && successMessages[sp.success] && (
+        <div className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-800 px-4 py-3 text-sm">
+          {successMessages[sp.success]}
         </div>
-        <div className="bg-white rounded-xl shadow-sm p-4">
-          <p className="text-sm text-gray-500">Enseignants assignés</p>
-          <p className="text-2xl font-bold text-emerald-600 mt-1">
-            {classes?.filter(c => c.teacher_id).length || 0}
+      )}
+
+      {/* Filtres */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Filtres avancés</p>
+        <form method="get" className="flex flex-col lg:flex-row lg:items-end gap-4">
+          {sp.success ? <input type="hidden" name="success" value={sp.success} /> : null}
+          <div className="flex-1 min-w-[200px]">
+            <label htmlFor="filter-teacher" className="block text-sm font-medium text-gray-700 mb-1">
+              Enseignant responsable
+            </label>
+            <select
+              id="filter-teacher"
+              name="teacher"
+              defaultValue={teacherFilter}
+              className="w-full px-3 py-2.5 border border-gray-400 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white"
+            >
+              <option value="">Tous les enseignants</option>
+              <option value="none">Sans enseignant assigné</option>
+              {teachers?.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.full_name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex-1 min-w-[180px]">
+            <label htmlFor="filter-niveau" className="block text-sm font-medium text-gray-700 mb-1">
+              Niveau de classe
+            </label>
+            <select
+              id="filter-niveau"
+              name="niveau"
+              defaultValue={niveauFilter}
+              className="w-full px-3 py-2.5 border border-gray-400 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white"
+            >
+              <option value="">Tous les niveaux</option>
+              <option value="__none__">Sans niveau renseigné</option>
+              {niveauOptions.map((g) => (
+                <option key={g} value={g}>
+                  {g}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="submit"
+              className="px-5 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium"
+            >
+              Appliquer
+            </button>
+            {hasActiveFilters ? (
+              <Link
+                href={sp.success ? buildClassesListUrl({ success: sp.success }) : '/admin/classes'}
+                className="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm font-medium inline-flex items-center justify-center"
+              >
+                Réinitialiser filtres
+              </Link>
+            ) : null}
+          </div>
+        </form>
+        {hasActiveFilters && (
+          <p className="text-xs text-gray-500 mt-3">
+            Affichage filtré : <strong>{classes.length}</strong> classe(s) sur {allClasses.length}.
           </p>
+        )}
+      </div>
+
+      {/* Stats (selon le filtre actif) */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <div className="bg-white rounded-xl shadow-sm p-4">
+          <p className="text-sm text-gray-500">{hasActiveFilters ? 'Classes (filtre)' : 'Total classes'}</p>
+          <p className="text-2xl font-bold text-gray-900 mt-1">{classes.length}</p>
         </div>
         <div className="bg-white rounded-xl shadow-sm p-4">
-          <p className="text-sm text-gray-500">Total élèves inscrits</p>
+          <p className="text-sm text-gray-500">Avec enseignant (résultat)</p>
+          <p className="text-2xl font-bold text-emerald-600 mt-1">{assignedInView}</p>
+        </div>
+        <div className="bg-white rounded-xl shadow-sm p-4">
+          <p className="text-sm text-gray-500">Élèves (résultat)</p>
           <p className="text-2xl font-bold text-indigo-600 mt-1">{totalStudents}</p>
         </div>
       </div>
 
       {classes && classes.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-          {classes.map((cls: any) => (
-            <div key={cls.id} className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden">
-              <div className="p-5">
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <h3 className="text-base font-bold text-gray-900">{cls.name}</h3>
-                    {cls.grade_level && (
-                      <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-medium mt-1 inline-block">
-                        {cls.grade_level}
-                      </span>
-                    )}
-                  </div>
-                  {cls.academic_year && (
-                    <span className="text-xs text-gray-400 bg-gray-50 px-2 py-1 rounded">{cls.academic_year}</span>
-                  )}
-                </div>
-
-                {cls.description && (
-                  <p className="text-sm text-gray-500 mb-3 line-clamp-2">{cls.description}</p>
-                )}
-
-                <div className="space-y-1.5 text-sm text-gray-500 mb-4">
-                  <div className="flex items-center gap-2">
-                    <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                    <span>{cls.teacher?.full_name || 'Enseignant non assigné'}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                    </svg>
-                    <span>{cls.students?.[0]?.count || 0} élève(s)</span>
-                  </div>
-                </div>
-
-                <div className="flex gap-2 border-t pt-3">
-                  <Link
-                    href={`/admin/classes/${cls.id}`}
-                    className="flex-1 text-center py-1.5 bg-indigo-50 text-indigo-600 rounded-lg text-sm font-medium hover:bg-indigo-100"
-                  >
-                    Détails
-                  </Link>
-                  <Link
-                    href={`/admin/classes/edit/${cls.id}`}
-                    className="flex-1 text-center py-1.5 bg-gray-50 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-100"
-                  >
-                    Modifier
-                  </Link>
-                </div>
-              </div>
-            </div>
-          ))}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-gray-900">Liste des classes</h2>
+            <span className="text-xs text-gray-500">{classes.length} entrée(s)</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[720px]">
+              <thead>
+                <tr className="bg-gray-50 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide border-b border-gray-100">
+                  <th className="px-4 py-3">Classe</th>
+                  <th className="px-4 py-3 whitespace-nowrap">Niveau</th>
+                  <th className="px-4 py-3 whitespace-nowrap">Année scol.</th>
+                  <th className="px-4 py-3 min-w-[140px]">Enseignant</th>
+                  <th className="px-4 py-3 text-center whitespace-nowrap">Élèves</th>
+                  <th className="px-4 py-3 text-right whitespace-nowrap">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {classes.map((cls: any) => (
+                  <tr key={cls.id} className="hover:bg-gray-50/80 transition-colors">
+                    <td className="px-4 py-3 align-top">
+                      <p className="font-semibold text-gray-900">{cls.name}</p>
+                      {cls.description ? (
+                        <p className="text-xs text-gray-500 mt-0.5 line-clamp-2 max-w-md">{cls.description}</p>
+                      ) : null}
+                    </td>
+                    <td className="px-4 py-3 align-top whitespace-nowrap">
+                      {cls.grade_level ? (
+                        <span className="inline-flex text-xs bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full font-medium">
+                          {cls.grade_level}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 align-top text-gray-600 whitespace-nowrap">
+                      {cls.academic_year || <span className="text-gray-400">—</span>}
+                    </td>
+                    <td className="px-4 py-3 align-top text-gray-700">
+                      {cls.teacher?.full_name || (
+                        <span className="text-amber-700/90 text-xs">Non assigné</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 align-top text-center font-medium text-gray-900 tabular-nums">
+                      {cls.students?.[0]?.count ?? 0}
+                    </td>
+                    <td className="px-4 py-3 align-top text-right whitespace-nowrap">
+                      <Link
+                        href={`/admin/classes/${cls.id}`}
+                        className="text-indigo-600 hover:text-indigo-800 font-medium mr-3"
+                      >
+                        Détails
+                      </Link>
+                      <Link
+                        href={`/admin/classes/edit/${cls.id}`}
+                        className="text-gray-600 hover:text-gray-900 font-medium"
+                      >
+                        Modifier
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : allClasses.length > 0 ? (
+        <div className="bg-white rounded-xl shadow-sm p-12 text-center border border-amber-100">
+          <p className="text-sm text-amber-800 font-medium">Aucune classe ne correspond aux filtres.</p>
+          <p className="mt-1 text-sm text-gray-500">Modifiez les critères ou réinitialisez.</p>
+          <Link
+            href={sp.success ? buildClassesListUrl({ success: sp.success }) : '/admin/classes'}
+            className="mt-4 inline-block px-4 py-2 bg-gray-100 text-gray-800 rounded-lg text-sm font-medium hover:bg-gray-200"
+          >
+            Réinitialiser les filtres
+          </Link>
         </div>
       ) : (
         <div className="bg-white rounded-xl shadow-sm p-12 text-center">

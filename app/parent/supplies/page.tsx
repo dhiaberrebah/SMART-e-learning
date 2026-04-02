@@ -8,6 +8,23 @@ async function placeOrder({
 }: { parentId: string; studentId: string; items: any[]; total: number; notes: string }) {
   'use server'
   const db = createServiceClient()
+  const ids = [...new Set(items.map((i: any) => i.id).filter(Boolean))]
+  if (ids.length === 0) return { error: 'Panier invalide.' }
+
+  const { data: rows } = await db.from('supply_catalog').select('id, stock_quantity, available').in('id', ids)
+  const byId = new Map((rows ?? []).map((r: any) => [r.id, r]))
+
+  for (const li of items) {
+    const r = byId.get(li.id)
+    if (!r) return { error: `Article « ${li.name ?? 'inconnu'} » introuvable.` }
+    if (!r.available) return { error: `« ${li.name} » n'est plus proposé à la commande.` }
+    const qty = Number(li.quantity) || 0
+    const stock = Number(r.stock_quantity ?? 0)
+    if (qty > stock) {
+      return { error: `Stock insuffisant pour « ${li.name} » (disponible : ${stock}).` }
+    }
+  }
+
   const { error } = await db.from('supply_orders').insert({
     parent_id: parentId,
     student_id: studentId,
@@ -15,12 +32,13 @@ async function placeOrder({
     total_amount: total,
     notes: notes || null,
     status: 'pending',
+    stock_deducted: false,
   })
   return { error: error?.message }
 }
 
 const STATUS_LABEL: Record<string, string> = {
-  pending:   '⏳ En attente',
+  pending:   '⏳ En attente (facture)',
   confirmed: '✅ Confirmée',
   shipped:   '🚚 En livraison',
   delivered: '📦 Livrée',
@@ -42,12 +60,12 @@ export default async function SuppliesPage() {
   const [{ data: children }, { data: orders }, { data: catalogItems }] = await Promise.all([
     db.from('students').select('id, full_name').eq('parent_id', user!.id).order('full_name'),
     db.from('supply_orders')
-      .select('id, status, total_amount, notes, created_at, items, student:students(full_name)')
+      .select('id, status, total_amount, notes, created_at, items, invoice_path, student:students(full_name)')
       .eq('parent_id', user!.id)
       .order('created_at', { ascending: false })
       .limit(20),
     db.from('supply_catalog')
-      .select('id, name, description, category, unit_price, unit, icon, available')
+      .select('id, name, description, category, unit_price, unit, icon, available, stock_quantity, min_stock_quantity')
       .eq('available', true)
       .order('category')
       .order('name'),
@@ -64,13 +82,17 @@ export default async function SuppliesPage() {
     <div className="p-6 max-w-7xl mx-auto">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">Fournitures scolaires</h1>
-        <p className="text-gray-500 text-sm mt-1">Commandez les fournitures dont votre enfant a besoin directement depuis l'école.</p>
+        <p className="text-gray-500 text-sm mt-1 max-w-2xl">
+          Commandez les articles depuis le catalogue. Vous réglez sur la facture remise par l&apos;école, puis vous déposez le scan ou la photo de cette facture sur la page de la commande ; l&apos;administration valide le paiement et marque la commande comme livrée.
+        </p>
       </div>
 
       {childList.length === 0 && (
         <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-6 text-sm text-amber-800">
           <span className="text-lg">⚠️</span>
-          <span>Aucun enfant lié à votre compte. Contactez l'administration avant de passer une commande.</span>
+          <span>
+            Aucun enfant lié : vérifiez votre CIN dans Mon profil (identique à celui donné à l&apos;école). Les élèves sont ajoutés automatiquement par l&apos;administration.
+          </span>
         </div>
       )}
 
@@ -89,6 +111,7 @@ export default async function SuppliesPage() {
                   <th className="px-5 py-3 font-medium">Enfant</th>
                   <th className="px-5 py-3 font-medium">Articles</th>
                   <th className="px-5 py-3 font-medium">Total</th>
+                  <th className="px-5 py-3 font-medium">Justificatif</th>
                   <th className="px-5 py-3 font-medium">Statut</th>
                   <th className="px-5 py-3 font-medium"></th>
                 </tr>
@@ -114,6 +137,13 @@ export default async function SuppliesPage() {
                         </div>
                       </td>
                       <td className="px-5 py-3 font-bold text-gray-900 whitespace-nowrap">{Number(o.total_amount).toFixed(3)} DT</td>
+                      <td className="px-5 py-3 text-xs">
+                        {(o as { invoice_path?: string | null }).invoice_path ? (
+                          <span className="text-emerald-600 font-medium">✓ Envoyé</span>
+                        ) : (
+                          <span className="text-amber-600">À téléverser</span>
+                        )}
+                      </td>
                       <td className="px-5 py-3">
                         <span className={`text-xs font-medium px-2 py-1 rounded-full ${STATUS_COLOR[o.status] ?? 'bg-gray-100 text-gray-500'}`}>
                           {STATUS_LABEL[o.status] ?? o.status}

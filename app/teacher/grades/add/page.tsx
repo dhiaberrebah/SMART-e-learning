@@ -22,6 +22,16 @@ async function addGrade(formData: FormData) {
     redirect('/teacher/grades/add?error=missing')
   }
 
+  const { data: subOk } = await db
+    .from('subjects')
+    .select('id')
+    .eq('id', subjectId)
+    .eq('teacher_id', user.id)
+    .maybeSingle()
+  if (!subOk) {
+    redirect('/teacher/grades/add?error=' + encodeURIComponent('Matière non autorisée.'))
+  }
+
   const { error } = await db.from('grades').insert({
     student_id: studentId,
     subject_id: subjectId,
@@ -50,7 +60,12 @@ export default async function AddGradePage({ searchParams }: { searchParams: Pro
       ? db.from('students').select('id, full_name, class_id').in('class_id', classIds).order('full_name')
       : Promise.resolve({ data: [] }),
     classIds.length > 0
-      ? db.from('subjects').select('id, name, class_id').in('class_id', classIds).order('name')
+      ? db
+          .from('subjects')
+          .select('id, name, class_id')
+          .in('class_id', classIds)
+          .eq('teacher_id', user!.id)
+          .order('name')
       : Promise.resolve({ data: [] }),
   ])
 

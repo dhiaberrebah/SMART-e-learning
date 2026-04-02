@@ -39,7 +39,7 @@ export default async function AssessmentDetailPage({
     .select('id, title, description, status, allow_attachments, created_at, teacher_id')
     .eq('id', id)
     .eq('teacher_id', user!.id)
-    .single()
+    .maybeSingle()
 
   if (!assessment) notFound()
 

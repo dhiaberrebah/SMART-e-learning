@@ -1,18 +1,40 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import ClassCurriculumSection from './ClassCurriculumSection'
 
-export default async function ClassDetailPage({ params }: { params: Promise<{ id: string }> }) {
+const subjectSuccess: Record<string, string> = {
+  subject_added: 'Matière créée.',
+  subject_updated: 'Matière mise à jour.',
+  subject_deleted: 'Matière supprimée.',
+  curriculum_updated: 'Programme prévu mis à jour.',
+  curriculum_preset_applied: 'Préréglage appliqué (les doublons ont été ignorés).',
+}
+
+const curriculumErrorLabels: Record<string, string> = {
+  missing: 'Action impossible : informations manquantes.',
+  duplicate: 'Cette matière figure déjà dans le programme prévu.',
+  invalid_preset: 'Préréglage inconnu.',
+}
+
+export default async function ClassDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ success?: string; curriculum_error?: string }>
+}) {
   const { id } = await params
+  const sp = await searchParams
   const supabase = await createClient()
 
-  const [{ data: cls }, { data: students }, { data: subjects }, { data: attendance }] =
+  const [{ data: cls }, { data: students }, { data: subjects }, { data: attendance }, { data: curriculumItems }] =
     await Promise.all([
       supabase
         .from('classes')
         .select(`*, teacher:profiles!classes_teacher_id_fkey(full_name, email)`)
         .eq('id', id)
-        .single(),
+        .maybeSingle(),
       supabase
         .from('students')
         .select(`*, parent:profiles!students_parent_id_fkey(full_name)`)
@@ -29,6 +51,11 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
         .eq('class_id', id)
         .gte('date', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
         .order('date', { ascending: false }),
+      supabase
+        .from('class_curriculum_items')
+        .select('id, name, sort_order')
+        .eq('class_id', id)
+        .order('sort_order', { ascending: true }),
     ])
 
   if (!cls) redirect('/admin/classes')
@@ -60,6 +87,17 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
+      {sp.success && subjectSuccess[sp.success] && (
+        <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-800 px-4 py-3 text-sm">
+          {subjectSuccess[sp.success]}
+        </div>
+      )}
+      {sp.curriculum_error && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 text-red-800 px-4 py-3 text-sm">
+          {curriculumErrorLabels[sp.curriculum_error] ?? decodeURIComponent(sp.curriculum_error)}
+        </div>
+      )}
+
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -106,6 +144,12 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
         </div>
       </div>
 
+      <ClassCurriculumSection
+        classId={id}
+        items={(curriculumItems ?? []) as { id: string; name: string; sort_order: number }[]}
+        subjectNames={(subjects ?? []).map((s: { name: string }) => s.name)}
+      />
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Students list */}
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
@@ -139,6 +183,12 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4 border-b">
             <h2 className="font-semibold text-gray-900">Matières ({subjects?.length || 0})</h2>
+            <Link
+              href={`/admin/subjects/add?class_id=${id}`}
+              className="text-xs font-medium text-indigo-600 hover:text-indigo-800"
+            >
+              + Ajouter une matière
+            </Link>
           </div>
           <div className="divide-y divide-gray-50 max-h-80 overflow-y-auto">
             {subjects && subjects.length > 0 ? (
@@ -153,10 +203,16 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
                     <p className="text-sm font-medium text-gray-900">{sub.name}</p>
                     <p className="text-xs text-gray-400">{sub.teacher?.full_name || 'Pas d\'enseignant'}</p>
                   </div>
+                  <Link
+                    href={`/admin/subjects/edit/${sub.id}`}
+                    className="text-xs text-indigo-600 hover:underline shrink-0"
+                  >
+                    Modifier
+                  </Link>
                 </div>
               ))
             ) : (
-              <p className="text-sm text-gray-400 text-center py-8">Aucune matière définie</p>
+              <p className="text-sm text-gray-400 text-center py-8">Aucune matière — ajoutez-en depuis le bouton ci-dessus</p>
             )}
           </div>
         </div>

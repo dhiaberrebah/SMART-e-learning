@@ -6,6 +6,9 @@ async function updateItem(formData: FormData) {
   'use server'
   const db = createServiceClient()
   const id = formData.get('id') as string
+  const stockQty = Math.max(0, parseInt(String(formData.get('stock_quantity') ?? '0'), 10) || 0)
+  const minStock = Math.max(0, parseInt(String(formData.get('min_stock_quantity') ?? '0'), 10) || 0)
+
   await db.from('supply_catalog').update({
     name:        formData.get('name') as string,
     description: (formData.get('description') as string) || null,
@@ -13,6 +16,8 @@ async function updateItem(formData: FormData) {
     unit_price:  parseFloat(formData.get('unit_price') as string),
     unit:        formData.get('unit') as string,
     icon:        (formData.get('icon') as string) || '📦',
+    stock_quantity: stockQty,
+    min_stock_quantity: minStock,
     updated_at:  new Date().toISOString(),
   }).eq('id', id)
   redirect('/admin/supplies/catalog')
@@ -25,7 +30,7 @@ export default async function EditCatalogItem({ params }: { params: Promise<{ id
   const { id } = await params
   const db = createServiceClient()
 
-  const { data: item } = await db.from('supply_catalog').select('*').eq('id', id).single()
+  const { data: item } = await db.from('supply_catalog').select('*').eq('id', id).maybeSingle()
   if (!item) notFound()
 
   const { data: existingCategories } = await db.from('supply_catalog').select('category').order('category')
@@ -72,6 +77,21 @@ export default async function EditCatalogItem({ params }: { params: Promise<{ id
           <input name="unit_price" type="number" required step="0.001" min="0"
             defaultValue={Number(item.unit_price).toFixed(3)}
             className="w-full border border-gray-400 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-300 focus:outline-none" />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Quantité en stock *</label>
+            <input name="stock_quantity" type="number" required min="0" step="1"
+              defaultValue={Number((item as any).stock_quantity ?? 0)}
+              className="w-full border border-gray-400 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-300 focus:outline-none" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Stock minimum (alerte) *</label>
+            <input name="min_stock_quantity" type="number" required min="0" step="1"
+              defaultValue={Number((item as any).min_stock_quantity ?? 0)}
+              className="w-full border border-gray-400 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-300 focus:outline-none" />
+          </div>
         </div>
 
         <div>

@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/service'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import { normalizeParentCin } from '@/lib/parent-cin'
 
 async function handleAddUser(formData: FormData) {
   'use server'
@@ -8,6 +9,13 @@ async function handleAddUser(formData: FormData) {
   const password = formData.get('password')  as string
   const fullName = formData.get('full_name') as string
   const role     = formData.get('role')      as string
+  const cinNorm  = normalizeParentCin(formData.get('cin') as string)
+
+  if (role === 'parent') {
+    if (!cinNorm || cinNorm.length < 5) {
+      redirect('/admin/users/add?error=' + encodeURIComponent('Le CIN est obligatoire pour un compte parent (min. 5 caractères).'))
+    }
+  }
 
   let errorMsg: string | null = null
 
@@ -15,10 +23,12 @@ async function handleAddUser(formData: FormData) {
     // Service client has persistSession:false → signUp never writes a cookie
     // so the admin's session is completely unaffected
     const db = createServiceClient()
+    const meta: Record<string, string> = { full_name: fullName, role }
+    if (role === 'parent' && cinNorm) meta.cin = cinNorm
     const { error } = await db.auth.signUp({
       email,
       password,
-      options: { data: { full_name: fullName, role } },
+      options: { data: meta },
     })
     if (error) errorMsg = error.message
   } catch (e: any) {
@@ -49,7 +59,7 @@ export default async function AddUserPage({
         </Link>
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Ajouter un utilisateur</h1>
-          <p className="text-gray-500 text-sm mt-0.5">Créer un compte enseignant, admin ou parent</p>
+          <p className="text-gray-500 text-sm mt-0.5">Créer un compte enseignant ou parent</p>
         </div>
       </div>
 
@@ -111,8 +121,21 @@ export default async function AddUserPage({
               <option value="">Choisir un rôle</option>
               <option value="teacher">Enseignant</option>
               <option value="parent">Parent</option>
-              <option value="admin">Administrateur</option>
             </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              CIN du parent <span className="text-gray-400 font-normal">(si rôle Parent)</span>
+            </label>
+            <input
+              type="text"
+              name="cin"
+              autoComplete="off"
+              placeholder="Obligatoire pour un compte parent"
+              className="w-full px-4 py-2.5 border border-gray-400 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm font-mono uppercase"
+            />
+            <p className="text-xs text-gray-500 mt-1">Même format que pour l&apos;inscription parent en ligne (rattachement des élèves).</p>
           </div>
 
           <div className="flex gap-3 pt-2">
@@ -135,7 +158,7 @@ export default async function AddUserPage({
       <div className="mt-4 bg-blue-50 border border-blue-100 rounded-lg p-4 text-sm text-blue-700 space-y-1">
         <p className="font-medium text-blue-900">Remarques :</p>
         <ul className="list-disc list-inside space-y-0.5">
-          <li>Les comptes <strong>enseignants</strong> et <strong>admins</strong> sont créés uniquement par l&apos;administration</li>
+          <li>Cette liste ne concerne que les <strong>enseignants</strong> et les <strong>parents</strong></li>
           <li>Les parents peuvent également s&apos;inscrire eux-mêmes via la page d&apos;inscription publique</li>
           <li>Un e-mail de confirmation sera envoyé à l&apos;utilisateur</li>
           <li>Le mot de passe doit comporter au moins 6 caractères</li>

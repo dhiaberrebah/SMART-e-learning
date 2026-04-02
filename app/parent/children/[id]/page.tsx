@@ -20,7 +20,7 @@ export default async function ChildDetailPage({
     `)
     .eq('id', id)
     .eq('parent_id', user!.id)
-    .single()
+    .maybeSingle()
 
   if (!child) redirect('/parent/children')
 

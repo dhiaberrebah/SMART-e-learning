@@ -65,7 +65,7 @@ export default function AddAssessmentPage() {
       .from('assessments')
       .insert({ title, description: description || null, status, allow_attachments: allowAttachments, teacher_id: user.id })
       .select('id')
-      .single()
+      .maybeSingle()
 
     if (aErr || !assessment) { setError(aErr?.message ?? 'Erreur création évaluation'); setLoading(false); return }
 

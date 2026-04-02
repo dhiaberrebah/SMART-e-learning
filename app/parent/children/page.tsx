@@ -157,7 +157,7 @@ export default async function ChildrenPage() {
           <div className="text-5xl mb-3">👨‍👧</div>
           <h3 className="text-sm font-semibold text-gray-700">Aucun enfant associé</h3>
           <p className="mt-2 text-sm text-gray-400 max-w-sm mx-auto">
-            Contactez l&apos;administrateur de l&apos;école pour lier vos enfants à votre compte parent.
+            L&apos;école enregistre vos enfants avec votre CIN : ils s&apos;affichent ici automatiquement. Vérifiez votre CIN dans Mon profil s&apos;il ne correspond pas à celui donné à l&apos;administration.
           </p>
         </div>
       )}
