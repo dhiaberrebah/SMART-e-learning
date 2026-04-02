@@ -13,7 +13,7 @@ async function saveAttendance(formData: FormData) {
   const date = formData.get('date') as string
 
   // Verify teacher owns this class
-  const { data: cls } = await db.from('classes').select('id').eq('id', classId).eq('teacher_id', user.id).single()
+  const { data: cls } = await db.from('classes').select('id').eq('id', classId).eq('teacher_id', user.id).maybeSingle()
   if (!cls) return
 
   // Get students in class

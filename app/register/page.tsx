@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { normalizeParentCin } from '@/lib/parent-cin'
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -12,6 +13,7 @@ export default function RegisterPage() {
     password: '',
     confirmPassword: '',
     fullName: '',
+    cin: '',
   })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -30,6 +32,12 @@ export default function RegisterPage() {
       return
     }
 
+    const cinNorm = normalizeParentCin(formData.cin)
+    if (!cinNorm || cinNorm.length < 5) {
+      setError('Indiquez un numéro de CIN valide (au moins 5 caractères, sans espaces obligatoires).')
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -42,6 +50,7 @@ export default function RegisterPage() {
           data: {
             full_name: formData.fullName,
             role: 'parent', // always parent — teachers/admins are created by admin only
+            cin: cinNorm,
           },
         },
       })
@@ -93,7 +102,7 @@ export default function RegisterPage() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <span>
-            Cette inscription est réservée aux <strong>parents d'élèves</strong>. Les comptes enseignants sont créés par l'administration.
+            Inscription réservée aux <strong>parents</strong> : indiquez le <strong>même CIN</strong> que celui communiqué à l&apos;école pour que vos enfants soient rattachés automatiquement à votre compte.
           </span>
         </div>
 
@@ -103,6 +112,26 @@ export default function RegisterPage() {
               {error}
             </div>
           )}
+
+          <div>
+            <label htmlFor="cin" className="block text-sm font-medium text-gray-700 mb-1.5">
+              CIN (carte d&apos;identité nationale) <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="cin"
+              name="cin"
+              type="text"
+              required
+              value={formData.cin}
+              onChange={(e) => setFormData({ ...formData, cin: e.target.value })}
+              className="appearance-none block w-full px-3 py-2.5 border border-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm font-mono uppercase"
+              placeholder="Le même numéro que pour l'inscription de vos enfants à l'école"
+              autoComplete="off"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Ce numéro permet de lier automatiquement les élèves enregistrés par l&apos;administration avec votre compte.
+            </p>
+          </div>
 
           <div>
             <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-1.5">

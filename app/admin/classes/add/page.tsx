@@ -1,20 +1,75 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import {
+  buildAutoClassName,
+  classNameExistsGlobally,
+  nextClassSectionLetter,
+} from '@/lib/class-name'
+import { PRIMARY_GRADE_OPTIONS_TUNISIA } from '@/lib/grade-levels'
 
 async function handleAddClass(formData: FormData) {
   'use server'
   const supabase = await createClient()
 
+  const grade_level = ((formData.get('grade_level') as string) || '').trim()
+  const academic_year = ((formData.get('academic_year') as string) || '').trim() || null
+
+  if (!grade_level) {
+    redirect(
+      '/admin/classes/add?error=' +
+        encodeURIComponent('Le niveau scolaire est obligatoire : le nom de la classe sera généré automatiquement (ex. 1re année a).')
+    )
+  }
+
+  const { data: sameLevelRows, error: fetchErr } = await supabase
+    .from('classes')
+    .select('name, academic_year')
+    .eq('grade_level', grade_level)
+
+  if (fetchErr) {
+    redirect('/admin/classes/add?error=' + encodeURIComponent(fetchErr.message))
+  }
+
+  const siblings = (sameLevelRows ?? []).filter(
+    (r) => (r.academic_year || '') === (academic_year || '')
+  )
+  const siblingNames = siblings.map((r) => r.name)
+
+  const letter = nextClassSectionLetter(grade_level, siblingNames)
+  if (!letter) {
+    redirect(
+      '/admin/classes/add?error=' +
+        encodeURIComponent('Nombre maximum de sections atteint pour ce niveau (a–z).')
+    )
+  }
+
+  const name = buildAutoClassName(grade_level, letter)
+
+  const { data: allRows } = await supabase.from('classes').select('name')
+  const taken = new Set((allRows ?? []).map((r) => r.name.trim().toLowerCase()))
+  if (classNameExistsGlobally(name, taken)) {
+    redirect(
+      '/admin/classes/add?error=' +
+        encodeURIComponent('Ce nom de classe existe déjà. Réessayez ou contactez le support.')
+    )
+  }
+
   const { error } = await supabase.from('classes').insert({
-    name: formData.get('name') as string,
+    name,
     description: (formData.get('description') as string) || null,
-    grade_level: (formData.get('grade_level') as string) || null,
-    academic_year: (formData.get('academic_year') as string) || null,
+    grade_level,
+    academic_year,
     teacher_id: (formData.get('teacher_id') as string) || null,
   })
 
   if (error) {
+    if (error.code === '23505' || error.message.toLowerCase().includes('unique')) {
+      redirect(
+        '/admin/classes/add?error=' +
+          encodeURIComponent('Un nom de classe identique existe déjà (contrainte d’unicité).')
+      )
+    }
     redirect('/admin/classes/add?error=' + encodeURIComponent(error.message))
   }
   redirect('/admin/classes?success=class_added')
@@ -33,7 +88,7 @@ export default async function AddClassPage({
     .eq('role', 'teacher')
     .order('full_name')
 
-  const gradeOptions = ['CP', 'CE1', 'CE2', 'CM1', 'CM2', '6ème', '5ème', '4ème', '3ème', '2nde', '1ère', 'Terminale']
+  const gradeOptions = [...PRIMARY_GRADE_OPTIONS_TUNISIA]
 
   return (
     <div className="p-6 max-w-2xl mx-auto">
@@ -57,17 +112,14 @@ export default async function AddClassPage({
 
       <div className="bg-white rounded-xl shadow-sm p-6">
         <form action={handleAddClass} className="space-y-5">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Nom de la classe <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              name="name"
-              required
-              placeholder="Ex : 6ème A"
-              className="w-full px-4 py-2.5 border border-gray-400 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
-            />
+          <div className="rounded-lg border border-indigo-100 bg-indigo-50/60 px-4 py-3 text-sm text-indigo-900">
+            <p className="font-medium">Nom attribué automatiquement</p>
+            <p className="mt-1 text-indigo-800/90">
+              Format : <strong>niveau</strong> + lettre de section <strong>a</strong>, <strong>b</strong>, <strong>c</strong>… (ex.{' '}
+              <span className="font-mono text-xs bg-white/80 px-1.5 py-0.5 rounded">1re année a</span>, puis{' '}
+              <span className="font-mono text-xs bg-white/80 px-1.5 py-0.5 rounded">1re année b</span>). Même niveau et même année
+              scolaire : la prochaine lettre libre est choisie. Les doublons sont interdits.
+            </p>
           </div>
 
           <div>
@@ -82,13 +134,20 @@ export default async function AddClassPage({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Niveau scolaire</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Niveau scolaire <span className="text-red-500">*</span>
+              </label>
               <select
                 name="grade_level"
+                required
                 className="w-full px-4 py-2.5 border border-gray-400 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
               >
                 <option value="">Choisir un niveau</option>
-                {gradeOptions.map(g => <option key={g} value={g}>{g}</option>)}
+                {gradeOptions.map((g) => (
+                  <option key={g} value={g}>
+                    {g}
+                  </option>
+                ))}
               </select>
             </div>
             <div>

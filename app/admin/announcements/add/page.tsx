@@ -18,7 +18,7 @@ async function handleCreate(formData: FormData) {
       created_by: user?.id,
     })
     .select()
-    .single()
+    .maybeSingle()
 
   if (error || !event) {
     redirect('/admin/announcements/add?error=' + encodeURIComponent(error?.message || 'Erreur'))

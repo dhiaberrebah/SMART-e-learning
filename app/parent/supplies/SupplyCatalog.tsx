@@ -10,6 +10,8 @@ export type CatalogItem = {
   unit: string
   icon: string
   available: boolean
+  stock_quantity: number
+  min_stock_quantity: number
 }
 
 type CartItem = CatalogItem & { quantity: number }
@@ -39,17 +41,31 @@ export default function SupplyCatalog({
     (search === '' || item.name.toLowerCase().includes(search.toLowerCase()))
   )
 
+  const stockOf = (item: CatalogItem) => Math.max(0, Number(item.stock_quantity ?? 0))
+
   const addToCart = (item: CatalogItem) => {
-    setCart(prev => {
-      const existing = prev.find(c => c.id === item.id)
-      if (existing) return prev.map(c => c.id === item.id ? { ...c, quantity: c.quantity + 1 } : c)
+    const max = stockOf(item)
+    if (max <= 0) return
+    setCart((prev) => {
+      const existing = prev.find((c) => c.id === item.id)
+      if (existing) {
+        const next = Math.min(max, existing.quantity + 1)
+        return prev.map((c) => (c.id === item.id ? { ...c, quantity: next } : c))
+      }
       return [...prev, { ...item, quantity: 1 }]
     })
   }
 
   const updateQty = (id: string, qty: number) => {
-    if (qty <= 0) setCart(prev => prev.filter(c => c.id !== id))
-    else setCart(prev => prev.map(c => c.id === id ? { ...c, quantity: qty } : c))
+    if (qty <= 0) setCart((prev) => prev.filter((c) => c.id !== id))
+    else
+      setCart((prev) =>
+        prev.map((c) => {
+          if (c.id !== id) return c
+          const max = stockOf(c)
+          return { ...c, quantity: Math.min(max, qty) }
+        })
+      )
   }
 
   const total = cart.reduce((sum, c) => sum + Number(c.unit_price) * c.quantity, 0)
@@ -89,32 +105,71 @@ export default function SupplyCatalog({
           <div className="text-center py-16 text-gray-400 text-sm">Aucun article trouvé.</div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
-            {filtered.map(item => {
-              const inCart = cart.find(c => c.id === item.id)
+            {filtered.map((item) => {
+              const inCart = cart.find((c) => c.id === item.id)
+              const stock = stockOf(item)
+              const low =
+                stock > 0 &&
+                Number(item.min_stock_quantity ?? 0) > 0 &&
+                stock <= Number(item.min_stock_quantity ?? 0)
               return (
-                <div key={item.id}
-                  className={`bg-white rounded-xl border p-4 flex flex-col gap-2 transition-all hover:shadow-md ${inCart ? 'border-indigo-300 shadow-sm' : 'border-gray-100'}`}>
+                <div
+                  key={item.id}
+                  className={`bg-white rounded-xl border p-4 flex flex-col gap-2 transition-all hover:shadow-md ${inCart ? 'border-indigo-300 shadow-sm' : 'border-gray-100'} ${stock <= 0 ? 'opacity-70' : ''}`}
+                >
                   <div className="text-3xl">{item.icon}</div>
                   <div className="flex-1">
                     <p className="text-sm font-semibold text-gray-900 leading-tight">{item.name}</p>
-                    {item.description && <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{item.description}</p>}
+                    {item.description && (
+                      <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{item.description}</p>
+                    )}
                   </div>
                   <div className="flex items-center justify-between mt-1">
                     <span className="text-sm font-bold text-indigo-600">{Number(item.unit_price).toFixed(3)} DT</span>
                     <span className="text-xs text-gray-400">/{item.unit}</span>
                   </div>
+                  <p className="text-xs">
+                    {stock <= 0 ? (
+                      <span className="font-medium text-red-600">Rupture de stock</span>
+                    ) : (
+                      <span className={low ? 'font-medium text-amber-700' : 'text-gray-600'}>
+                        {stock} en stock
+                        {low ? ' · stock faible' : ''}
+                      </span>
+                    )}
+                  </p>
                   {inCart ? (
                     <div className="flex items-center gap-2 mt-1">
-                      <button onClick={() => updateQty(item.id, inCart.quantity - 1)}
-                        className="w-6 h-6 rounded-full bg-gray-100 text-gray-700 text-sm font-bold flex items-center justify-center hover:bg-red-100 hover:text-red-600">−</button>
-                      <span className="text-sm font-semibold text-gray-900 flex-1 text-center">{inCart.quantity}</span>
-                      <button onClick={() => updateQty(item.id, inCart.quantity + 1)}
-                        className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 text-sm font-bold flex items-center justify-center hover:bg-indigo-200">+</button>
+                      <button
+                        type="button"
+                        onClick={() => updateQty(item.id, inCart.quantity - 1)}
+                        className="w-6 h-6 rounded-full bg-gray-100 text-gray-700 text-sm font-bold flex items-center justify-center hover:bg-red-100 hover:text-red-600"
+                      >
+                        −
+                      </button>
+                      <span className="text-sm font-semibold text-gray-900 flex-1 text-center">
+                        {inCart.quantity}
+                        {stock > 0 ? (
+                          <span className="text-xs font-normal text-gray-400"> / {stock}</span>
+                        ) : null}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => updateQty(item.id, inCart.quantity + 1)}
+                        disabled={inCart.quantity >= stock}
+                        className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 text-sm font-bold flex items-center justify-center hover:bg-indigo-200 disabled:opacity-40 disabled:pointer-events-none"
+                      >
+                        +
+                      </button>
                     </div>
                   ) : (
-                    <button onClick={() => addToCart(item)}
-                      className="mt-1 w-full py-1.5 bg-indigo-50 text-indigo-700 text-xs font-medium rounded-lg hover:bg-indigo-100 transition-colors">
-                      Ajouter
+                    <button
+                      type="button"
+                      onClick={() => addToCart(item)}
+                      disabled={stock <= 0}
+                      className="mt-1 w-full py-1.5 bg-indigo-50 text-indigo-700 text-xs font-medium rounded-lg hover:bg-indigo-100 transition-colors disabled:bg-gray-100 disabled:text-gray-400"
+                    >
+                      {stock <= 0 ? 'Indisponible' : 'Ajouter'}
                     </button>
                   )}
                 </div>
@@ -133,8 +188,11 @@ export default function SupplyCatalog({
           </div>
 
           {success && (
-            <div className="px-4 py-3 bg-emerald-50 text-emerald-700 text-sm flex items-center gap-2 border-b border-emerald-100">
-              <span>✅</span><span>Commande envoyée avec succès !</span>
+            <div className="px-4 py-3 bg-emerald-50 text-emerald-700 text-sm flex flex-col gap-1 border-b border-emerald-100">
+              <span className="flex items-center gap-2"><span>✅</span><span>Commande enregistrée.</span></span>
+              <span className="text-xs text-emerald-800/90 pl-7">
+                Ouvrez la commande dans « Mes commandes » et téléversez le scan de la facture de l&apos;école après paiement.
+              </span>
             </div>
           )}
           {error && (

@@ -28,7 +28,7 @@ export default async function TeacherProfile({ searchParams }: { searchParams: P
   const db = createServiceClient()
 
   const [{ data: profile }, { data: classes }, { data: subjects }] = await Promise.all([
-    db.from('profiles').select('*').eq('id', user!.id).single(),
+    db.from('profiles').select('*').eq('id', user!.id).maybeSingle(),
     db.from('classes').select('id, name, grade_level, academic_year').eq('teacher_id', user!.id).order('name'),
     db.from('subjects').select('id, name, class_id').eq('teacher_id', user!.id).order('name'),
   ])

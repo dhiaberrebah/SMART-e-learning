@@ -16,7 +16,7 @@ export default async function TeacherLayout({ children }: { children: React.Reac
   if (!user) redirect('/login')
 
   const db = createServiceClient()
-  const { data: profile } = await db.from('profiles').select('*').eq('id', user.id).single()
+  const { data: profile } = await db.from('profiles').select('*').eq('id', user.id).maybeSingle()
   if (profile?.role !== 'teacher') redirect('/')
 
   return (

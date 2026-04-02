@@ -18,6 +18,7 @@ export default async function TeacherDashboard() {
     { data: recentAttendance },
     { data: recentSubmissions },
     { data: upcomingEvents },
+    { data: adminMessages },
   ] = await Promise.all([
     db.from('classes').select('id, name, grade_level').eq('teacher_id', user!.id).order('name'),
     db.from('subjects').select('id, name, class_id').eq('teacher_id', user!.id).order('name'),
@@ -25,6 +26,11 @@ export default async function TeacherDashboard() {
     db.from('attendance').select('date, status, class_id, class:classes(name)').eq('classes.teacher_id', user!.id).gte('date', sevenDaysAgo).order('date', { ascending: false }),
     db.from('assessment_submissions').select('id, status, submitted_at, student:students(full_name), assessment:assessments(title, teacher_id)').eq('assessments.teacher_id', user!.id).order('submitted_at', { ascending: false }).limit(5),
     db.from('events').select('id, title, start_at, location').gte('start_at', new Date().toISOString()).order('start_at', { ascending: true }).limit(3),
+    supabase
+      .from('admin_broadcast_messages')
+      .select('id, title, created_at')
+      .order('created_at', { ascending: false })
+      .limit(3),
   ])
 
   const classIds = (classes ?? []).map((c: any) => c.id)
@@ -51,7 +57,7 @@ export default async function TeacherDashboard() {
   const stats = [
     { label: 'Mes classes', value: (classes ?? []).length, icon: '🏫', href: '/teacher/classes', color: 'bg-blue-50 border-blue-200' },
     { label: 'Mes élèves', value: (students ?? []).length, icon: '👨‍🎓', href: '/teacher/students', color: 'bg-indigo-50 border-indigo-200' },
-    { label: 'Matières', value: (subjects ?? []).length, icon: '📚', href: '/teacher/subjects', color: 'bg-purple-50 border-purple-200' },
+    { label: 'Mes matières', value: (subjects ?? []).length, icon: '📚', href: '/teacher/subjects', color: 'bg-purple-50 border-purple-200' },
     { label: 'Présences aujourd\'hui', value: todayRate !== null ? `${todayRate}%` : '—', sub: totalToday > 0 ? `${presentToday}/${totalToday}` : 'Non marquées', icon: '✅', href: '/teacher/attendance', color: 'bg-emerald-50 border-emerald-200' },
     { label: 'Évaluations', value: (assessments ?? []).length, icon: '📝', href: '/teacher/assessments', color: 'bg-amber-50 border-amber-200' },
     { label: 'Soumissions en attente', value: pendingSubmissions, icon: '⏳', href: '/teacher/assessments', color: 'bg-red-50 border-red-200' },
@@ -67,6 +73,32 @@ export default async function TeacherDashboard() {
           {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
         </p>
       </div>
+
+      {adminMessages && adminMessages.length > 0 && (
+        <div className="mb-8 rounded-xl border border-indigo-100 bg-indigo-50/60 p-4">
+          <div className="flex items-center justify-between gap-3 mb-2">
+            <h2 className="text-sm font-semibold text-indigo-900">Messages administration</h2>
+            <Link href="/teacher/admin-messages" className="text-xs font-medium text-indigo-700 hover:underline">
+              Voir tout
+            </Link>
+          </div>
+          <ul className="space-y-2">
+            {(adminMessages ?? []).map((m: { id: string; title: string; created_at: string }) => (
+              <li key={m.id}>
+                <Link
+                  href="/teacher/admin-messages"
+                  className="block text-sm text-indigo-950 hover:text-indigo-700 font-medium"
+                >
+                  {m.title}
+                </Link>
+                <p className="text-xs text-indigo-600/80">
+                  {new Date(m.created_at).toLocaleString('fr-FR')}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">

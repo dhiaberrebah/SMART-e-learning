@@ -31,7 +31,7 @@ export default async function AdminCatalogPage() {
   const db = createServiceClient()
   const { data: items } = await db
     .from('supply_catalog')
-    .select('id, name, description, category, unit_price, unit, icon, available, created_at')
+    .select('id, name, description, category, unit_price, unit, icon, available, stock_quantity, min_stock_quantity, created_at')
     .order('category').order('name')
 
   const categories = Array.from(new Set((items ?? []).map((i: any) => i.category)))
@@ -63,12 +63,18 @@ export default async function AdminCatalogPage() {
                   <th className="px-4 py-2.5 text-left font-medium">Description</th>
                   <th className="px-4 py-2.5 text-left font-medium">Prix unitaire</th>
                   <th className="px-4 py-2.5 text-left font-medium">Unité</th>
-                  <th className="px-4 py-2.5 text-left font-medium">Statut</th>
+                  <th className="px-4 py-2.5 text-left font-medium">Stock</th>
+                  <th className="px-4 py-2.5 text-left font-medium">Catalogue</th>
                   <th className="px-4 py-2.5 text-left font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {(items ?? []).filter((i: any) => i.category === cat).map((item: any) => (
+                {(items ?? []).filter((i: any) => i.category === cat).map((item: any) => {
+                  const stock = Number(item.stock_quantity ?? 0)
+                  const minS = Number(item.min_stock_quantity ?? 0)
+                  const rupture = item.available && stock === 0
+                  const low = item.available && stock > 0 && minS > 0 && stock <= minS
+                  return (
                   <tr key={item.id} className={`hover:bg-gray-50 transition-colors ${!item.available ? 'opacity-50' : ''}`}>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
@@ -80,8 +86,20 @@ export default async function AdminCatalogPage() {
                     <td className="px-4 py-3 font-bold text-indigo-600">{Number(item.unit_price).toFixed(3)} DT</td>
                     <td className="px-4 py-3 text-gray-500">{item.unit}</td>
                     <td className="px-4 py-3">
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${item.available ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
-                        {item.available ? 'Disponible' : 'Désactivé'}
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-sm font-semibold text-gray-900">{stock} unité{stock !== 1 ? 's' : ''}</span>
+                        <span className="text-xs text-gray-500">seuil : {minS}</span>
+                        {rupture && (
+                          <span className="text-xs font-medium text-red-600">Rupture</span>
+                        )}
+                        {low && !rupture && (
+                          <span className="text-xs font-medium text-amber-700">Stock faible</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${item.available ? 'bg-slate-100 text-slate-700' : 'bg-gray-100 text-gray-500'}`}>
+                        {item.available ? 'Actif' : 'Désactivé'}
                       </span>
                     </td>
                     <td className="px-4 py-3">
@@ -103,7 +121,8 @@ export default async function AdminCatalogPage() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>

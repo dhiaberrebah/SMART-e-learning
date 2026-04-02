@@ -2,14 +2,22 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import InvoiceUploadForm from './InvoiceUploadForm'
 
 const STATUS_STEPS = ['pending', 'confirmed', 'shipped', 'delivered']
 
+function pendingDesc(hasInvoice: boolean) {
+  if (hasInvoice) {
+    return "Votre justificatif de paiement a été reçu. L'administration vérifie le paiement avant de marquer la commande comme livrée."
+  }
+  return "Réglez la facture remise par l'école, puis téléversez une photo ou un scan de cette facture ci-dessous. L'école validera le paiement et passera la commande en « Livrée »."
+}
+
 const STATUS_META: Record<string, { label: string; color: string; icon: string; desc: string }> = {
-  pending:   { label: 'En attente',     color: 'text-amber-600 bg-amber-100 border-amber-300',   icon: '⏳', desc: "Votre commande a été reçue et est en attente de confirmation par l'administration." },
-  confirmed: { label: 'Confirmée',      color: 'text-blue-600 bg-blue-100 border-blue-300',      icon: '✅', desc: "Votre commande a été confirmée. La préparation est en cours." },
+  pending:   { label: 'En attente',     color: 'text-amber-600 bg-amber-100 border-amber-300',   icon: '⏳', desc: '' },
+  confirmed: { label: 'Confirmée',      color: 'text-blue-600 bg-blue-100 border-blue-300',      icon: '✅', desc: "Votre commande a été prise en charge par l'administration." },
   shipped:   { label: 'En livraison',   color: 'text-purple-600 bg-purple-100 border-purple-300',icon: '🚚', desc: "Votre commande est en cours de livraison." },
-  delivered: { label: 'Livrée',         color: 'text-emerald-600 bg-emerald-100 border-emerald-300', icon: '📦', desc: "Votre commande a été livrée avec succès." },
+  delivered: { label: 'Livrée',         color: 'text-emerald-600 bg-emerald-100 border-emerald-300', icon: '📦', desc: "La commande est marquée livrée : le paiement a été vérifié par l'école." },
   cancelled: { label: 'Annulée',        color: 'text-red-600 bg-red-100 border-red-300',         icon: '❌', desc: "Votre commande a été annulée." },
 }
 
@@ -21,10 +29,12 @@ export default async function ParentOrderDetail({ params }: { params: Promise<{ 
 
   const { data: order } = await db
     .from('supply_orders')
-    .select('id, status, total_amount, notes, created_at, updated_at, items, student:students(full_name, class:classes(name))')
+    .select(
+      'id, status, total_amount, notes, created_at, updated_at, items, invoice_path, invoice_uploaded_at, student:students(full_name, class:classes(name))'
+    )
     .eq('id', id)
     .eq('parent_id', user!.id)
-    .single()
+    .maybeSingle()
 
   if (!order) notFound()
 
@@ -32,6 +42,10 @@ export default async function ParentOrderDetail({ params }: { params: Promise<{ 
   const meta = STATUS_META[order.status] ?? STATUS_META.pending
   const isCancelled = order.status === 'cancelled'
   const currentStepIdx = STATUS_STEPS.indexOf(order.status)
+  const hasInvoice = Boolean((order as { invoice_path?: string | null }).invoice_path)
+  const statusNote =
+    order.status === 'pending' ? pendingDesc(hasInvoice) : meta.desc
+  const uploadDisabled = order.status === 'delivered' || order.status === 'cancelled'
 
   return (
     <div className="p-6 max-w-2xl mx-auto">
@@ -79,9 +93,15 @@ export default async function ParentOrderDetail({ params }: { params: Promise<{ 
               })}
             </div>
           </div>
-          <p className="text-xs text-gray-500 mt-4 bg-gray-50 rounded-lg px-3 py-2">{meta.desc}</p>
+          <p className="text-xs text-gray-500 mt-4 bg-gray-50 rounded-lg px-3 py-2">{statusNote}</p>
         </div>
       )}
+
+      <InvoiceUploadForm
+        orderId={order.id}
+        existingPath={(order as { invoice_path?: string | null }).invoice_path ?? null}
+        disabled={uploadDisabled}
+      />
 
       {isCancelled && (
         <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-5 text-sm text-red-700 flex items-center gap-2">

@@ -1,16 +1,32 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import { PRIMARY_GRADE_OPTIONS_TUNISIA } from '@/lib/grade-levels'
 
 async function handleUpdate(formData: FormData) {
   'use server'
   const supabase = await createClient()
   const classId = formData.get('class_id') as string
 
+  const name = ((formData.get('name') as string) || '').trim()
+  if (!name) {
+    redirect(`/admin/classes/edit/${classId}?error=` + encodeURIComponent('Le nom de la classe est obligatoire.'))
+  }
+
+  const { data: others } = await supabase.from('classes').select('id, name').neq('id', classId)
+  const nameLower = name.toLowerCase()
+  const dup = (others ?? []).some((o) => o.name.trim().toLowerCase() === nameLower)
+  if (dup) {
+    redirect(
+      `/admin/classes/edit/${classId}?error=` +
+        encodeURIComponent('Ce nom est déjà utilisé par une autre classe (doublon interdit).')
+    )
+  }
+
   const { error } = await supabase
     .from('classes')
     .update({
-      name: formData.get('name') as string,
+      name,
       description: (formData.get('description') as string) || null,
       grade_level: (formData.get('grade_level') as string) || null,
       academic_year: (formData.get('academic_year') as string) || null,
@@ -19,6 +35,12 @@ async function handleUpdate(formData: FormData) {
     .eq('id', classId)
 
   if (error) {
+    if (error.code === '23505' || error.message.toLowerCase().includes('unique')) {
+      redirect(
+        `/admin/classes/edit/${classId}?error=` +
+          encodeURIComponent('Ce nom est déjà utilisé (contrainte d’unicité en base).')
+      )
+    }
     redirect(`/admin/classes/edit/${classId}?error=` + encodeURIComponent(error.message))
   }
   redirect('/admin/classes?success=class_updated')
@@ -48,14 +70,18 @@ export default async function EditClassPage({
   const supabase = await createClient()
 
   const [{ data: cls }, { data: teachers }, { count: studentCount }] = await Promise.all([
-    supabase.from('classes').select('*').eq('id', id).single(),
+    supabase.from('classes').select('*').eq('id', id).maybeSingle(),
     supabase.from('profiles').select('id, full_name').eq('role', 'teacher').order('full_name'),
     supabase.from('students').select('*', { count: 'exact', head: true }).eq('class_id', id),
   ])
 
   if (!cls) redirect('/admin/classes')
 
-  const gradeOptions = ['CP', 'CE1', 'CE2', 'CM1', 'CM2', '6ème', '5ème', '4ème', '3ème', '2nde', '1ère', 'Terminale']
+  const baseGrades = [...PRIMARY_GRADE_OPTIONS_TUNISIA] as string[]
+  const gradeOptions =
+    cls.grade_level && !baseGrades.includes(cls.grade_level)
+      ? [cls.grade_level, ...baseGrades]
+      : baseGrades
 
   return (
     <div className="p-6 max-w-2xl mx-auto">
@@ -92,6 +118,9 @@ export default async function EditClassPage({
               defaultValue={cls.name}
               className="w-full px-4 py-2.5 border border-gray-400 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
             />
+            <p className="text-xs text-gray-500 mt-1">
+              Lors de la création, le nom est généré automatiquement (niveau + a, b, c…). Vous pouvez l’ajuster ici sans dupliquer un nom existant.
+            </p>
           </div>
 
           <div>

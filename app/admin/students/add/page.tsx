@@ -1,16 +1,35 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import { nextStudentNumber } from '@/lib/student-numbers'
+import { normalizeParentCin } from '@/lib/parent-cin'
 
 async function handleAddStudent(formData: FormData) {
   'use server'
   const supabase = await createClient()
+  const num = await nextStudentNumber(supabase)
+
+  const parentCinNorm = normalizeParentCin(formData.get('parent_cin') as string)
+  if (!parentCinNorm) {
+    redirect('/admin/students/add?error=' + encodeURIComponent("Le CIN du parent est obligatoire pour lier l'élève au compte parent."))
+  }
+
+  const { data: par } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('role', 'parent')
+    .eq('cin', parentCinNorm)
+    .maybeSingle()
+
+  const parent_id = par?.id ?? null
+  const enrollment_parent_cin = par ? null : parentCinNorm
 
   const { error } = await supabase.from('students').insert({
     full_name: formData.get('full_name') as string,
     date_of_birth: (formData.get('date_of_birth') as string) || null,
-    student_number: (formData.get('student_number') as string) || null,
-    parent_id: (formData.get('parent_id') as string) || null,
+    student_number: String(num),
+    parent_id,
+    enrollment_parent_cin,
     class_id: (formData.get('class_id') as string) || null,
   })
 
@@ -27,9 +46,9 @@ export default async function AddStudentPage({
 }) {
   const sp = await searchParams
   const supabase = await createClient()
-  const [{ data: parents }, { data: classes }] = await Promise.all([
-    supabase.from('profiles').select('id, full_name, email').eq('role', 'parent').order('full_name'),
+  const [{ data: classes }, nextNum] = await Promise.all([
     supabase.from('classes').select('id, name, grade_level').order('name'),
+    nextStudentNumber(supabase),
   ])
 
   return (
@@ -42,7 +61,7 @@ export default async function AddStudentPage({
         </Link>
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Ajouter un élève</h1>
-          <p className="text-gray-500 text-sm mt-0.5">Inscrire un nouvel élève</p>
+          <p className="text-gray-500 text-sm mt-0.5">Inscrire un nouvel élève et le rattacher au parent par CIN</p>
         </div>
       </div>
 
@@ -67,45 +86,40 @@ export default async function AddStudentPage({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">N° élève</label>
-              <input
-                type="text"
-                name="student_number"
-                placeholder="Ex : 2024001"
-                className="w-full px-4 py-2.5 border border-gray-400 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Date de naissance</label>
-              <input
-                type="date"
-                name="date_of_birth"
-                className="w-full px-4 py-2.5 border border-gray-400 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
-              />
-            </div>
+          <div className="rounded-lg border border-indigo-100 bg-indigo-50/50 px-4 py-3 text-sm text-indigo-900">
+            <span className="font-medium">N° élève :</span>{' '}
+            <span className="tabular-nums font-bold">{nextNum}</span>
+            <span className="text-indigo-700/80">
+              {' '}
+              (attribué à l'enregistrement ; peut être le suivant si un autre élève est créé entre-temps)
+            </span>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Parent</label>
-            <select
-              name="parent_id"
-              className="w-full px-4 py-2.5 border border-gray-400 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
-            >
-              <option value="">Aucun parent assigné</option>
-              {parents?.map(p => (
-                <option key={p.id} value={p.id}>
-                  {p.full_name} — {p.email}
-                </option>
-              ))}
-            </select>
-            {(!parents || parents.length === 0) && (
-              <p className="text-xs text-amber-600 mt-1">
-                Aucun parent dans le système.{' '}
-                <Link href="/admin/users/add" className="underline">Ajouter un parent</Link>
-              </p>
-            )}
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Date de naissance</label>
+            <input
+              type="date"
+              name="date_of_birth"
+              className="w-full max-w-xs px-4 py-2.5 border border-gray-400 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+            />
+          </div>
+
+          <div className="rounded-lg border-2 border-gray-900 bg-gray-50 p-4">
+            <label className="block text-sm font-semibold text-gray-900 mb-1">
+              CIN du parent <span className="text-red-500">*</span>
+            </label>
+            <p className="text-xs text-gray-600 mb-2">
+              Identique au CIN indiqué par le parent à l'inscription. Si le compte parent existe déjà, l'élève est lié
+              tout de suite. Sinon, le lien se fera automatiquement dès que le parent créera son compte avec ce CIN.
+            </p>
+            <input
+              type="text"
+              name="parent_cin"
+              required
+              autoComplete="off"
+              placeholder="Ex. 12345678"
+              className="w-full px-4 py-2.5 border border-gray-400 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm font-mono uppercase"
+            />
           </div>
 
           <div>
@@ -115,25 +129,34 @@ export default async function AddStudentPage({
               className="w-full px-4 py-2.5 border border-gray-400 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
             >
               <option value="">Aucune classe assignée</option>
-              {classes?.map(c => (
+              {classes?.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.name}{c.grade_level ? ` — ${c.grade_level}` : ''}
+                  {c.name}
+                  {c.grade_level ? ` — ${c.grade_level}` : ''}
                 </option>
               ))}
             </select>
             {(!classes || classes.length === 0) && (
               <p className="text-xs text-amber-600 mt-1">
                 Aucune classe disponible.{' '}
-                <Link href="/admin/classes/add" className="underline">Créer une classe</Link>
+                <Link href="/admin/classes/add" className="underline">
+                  Créer une classe
+                </Link>
               </p>
             )}
           </div>
 
           <div className="flex gap-3 pt-2">
-            <button type="submit" className="flex-1 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium text-sm">
+            <button
+              type="submit"
+              className="flex-1 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium text-sm"
+            >
               Ajouter l&apos;élève
             </button>
-            <Link href="/admin/students" className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium text-sm text-center">
+            <Link
+              href="/admin/students"
+              className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium text-sm text-center"
+            >
               Annuler
             </Link>
           </div>

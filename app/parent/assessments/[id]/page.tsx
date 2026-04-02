@@ -66,7 +66,7 @@ export default async function ParentAssessmentDetail({
     db.from('assessments')
       .select('id, title, description, status, created_at, allow_attachments, teacher:profiles!teacher_id(full_name)')
       .eq('id', id)
-      .single(),
+      .maybeSingle(),
     db.from('assessment_questions')
       .select('id, position, question_type, prompt, options, correct_option_index, points')
       .eq('assessment_id', id)

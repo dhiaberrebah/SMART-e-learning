@@ -95,7 +95,9 @@ export default async function ParentResourcesPage({
       {(children ?? []).length === 0 && (
         <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-6 text-sm text-amber-800">
           <span className="text-lg">⚠️</span>
-          <span>Aucun enfant lié à votre compte. Contactez l'administration pour voir les ressources de leurs classes.</span>
+          <span>
+            Aucun enfant lié : assurez-vous que votre CIN sur Mon profil correspond à celui de l&apos;école ; les ressources des classes de vos enfants apparaîtront ici automatiquement.
+          </span>
         </div>
       )}
 

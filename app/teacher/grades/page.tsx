@@ -22,7 +22,12 @@ export default async function TeacherGrades({ searchParams }: { searchParams: Pr
 
   const [{ data: subjects }, { data: students }] = await Promise.all([
     classIds.length > 0
-      ? db.from('subjects').select('id, name, class_id').in('class_id', classIds).order('name')
+      ? db
+          .from('subjects')
+          .select('id, name, class_id')
+          .in('class_id', classIds)
+          .eq('teacher_id', user!.id)
+          .order('name')
       : Promise.resolve({ data: [] }),
     classIds.length > 0
       ? db.from('students').select('id, full_name, class_id').in('class_id', classIds).order('full_name')

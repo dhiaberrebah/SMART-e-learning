@@ -23,7 +23,9 @@ export default async function AdminOrdersPage({
 
   let query = db
     .from('supply_orders')
-    .select('id, status, total_amount, notes, created_at, items, student:students(full_name, class:classes(name)), parent:profiles!parent_id(full_name)')
+    .select(
+      'id, status, total_amount, notes, created_at, items, invoice_path, student:students(full_name, class:classes(name)), parent:profiles!parent_id(full_name)'
+    )
     .order('created_at', { ascending: false })
 
   if (sp.status && ALL_STATUSES.includes(sp.status)) {
@@ -73,7 +75,7 @@ export default async function AdminOrdersPage({
           <tbody className="divide-y divide-gray-50">
             {(orders ?? []).length === 0 ? (
               <tr>
-                <td colSpan={8} className="text-center text-gray-400 py-10">Aucune commande</td>
+                <td colSpan={9} className="text-center text-gray-400 py-10">Aucune commande</td>
               </tr>
             ) : (orders as any[]).map(o => (
               <tr key={o.id} className="hover:bg-gray-50 transition-colors">
@@ -97,6 +99,20 @@ export default async function AdminOrdersPage({
                   </div>
                 </td>
                 <td className="px-5 py-3 font-bold text-gray-900 whitespace-nowrap">{Number(o.total_amount).toFixed(3)} DT</td>
+                <td className="px-5 py-3">
+                  {o.invoice_path ? (
+                    <a
+                      href={o.invoice_path}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs font-medium text-indigo-600 hover:underline"
+                    >
+                      Voir scan
+                    </a>
+                  ) : (
+                    <span className="text-xs text-gray-400">—</span>
+                  )}
+                </td>
                 <td className="px-5 py-3">
                   <span className={`text-xs font-medium px-2 py-1 rounded-full ${STATUS_COLOR[o.status] ?? 'bg-gray-100 text-gray-500'}`}>
                     {STATUS_LABEL[o.status] ?? o.status}

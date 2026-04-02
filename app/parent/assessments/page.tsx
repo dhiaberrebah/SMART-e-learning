@@ -118,7 +118,7 @@ export default async function ParentAssessments({ searchParams }: { searchParams
         <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-5 text-sm text-amber-800">
           <span className="text-lg leading-none mt-0.5">⚠️</span>
           <span>
-            Aucun enfant lié à votre compte. Contactez l'administration.
+            Aucun enfant lié : vérifiez votre CIN dans Mon profil (même numéro que pour l&apos;école).
             Les évaluations sont visibles mais vous ne pourrez pas soumettre de réponses.
           </span>
         </div>

@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { normalizeParentCin } from '@/lib/parent-cin'
 
 async function handleUpdateProfile(formData: FormData) {
   'use server'
@@ -7,9 +8,14 @@ async function handleUpdateProfile(formData: FormData) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return
 
+  const cin = normalizeParentCin(formData.get('cin') as string)
+  if (!cin || cin.length < 5) {
+    redirect('/parent/profile?error=' + encodeURIComponent('Indiquez un CIN valide (min. 5 caractères).'))
+  }
+
   const { error } = await supabase
     .from('profiles')
-    .update({ full_name: formData.get('full_name') as string })
+    .update({ full_name: formData.get('full_name') as string, cin })
     .eq('id', user.id)
 
   if (error) {
@@ -51,7 +57,7 @@ export default async function ParentProfilePage({
     .from('profiles')
     .select('*')
     .eq('id', user!.id)
-    .single()
+    .maybeSingle()
 
   // Get children info
   const { data: children } = await supabase
@@ -109,6 +115,20 @@ export default async function ParentProfilePage({
               defaultValue={profile?.full_name || ''}
               className="w-full px-4 py-2.5 border border-gray-400 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm"
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">CIN</label>
+            <input
+              type="text"
+              name="cin"
+              required
+              defaultValue={(profile as { cin?: string | null })?.cin || ''}
+              autoComplete="off"
+              className="w-full px-4 py-2.5 border border-gray-400 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm font-mono uppercase"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Doit correspondre au CIN saisi par l&apos;école pour vos enfants. Si vous le modifiez, les élèves en attente avec ce CIN seront rattachés automatiquement.
+            </p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Adresse e-mail</label>
