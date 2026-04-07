@@ -1,21 +1,14 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { normalizeParentCin } from '@/lib/parent-cin'
-
 async function handleUpdateProfile(formData: FormData) {
   'use server'
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return
 
-  const cin = normalizeParentCin(formData.get('cin') as string)
-  if (!cin || cin.length < 5) {
-    redirect('/parent/profile?error=' + encodeURIComponent('Indiquez un CIN valide (min. 5 caractères).'))
-  }
-
   const { error } = await supabase
     .from('profiles')
-    .update({ full_name: formData.get('full_name') as string, cin })
+    .update({ full_name: formData.get('full_name') as string })
     .eq('id', user.id)
 
   if (error) {
@@ -59,6 +52,8 @@ export default async function ParentProfilePage({
     .eq('id', user!.id)
     .maybeSingle()
 
+  const accountEmail = user!.email ?? (profile as { email?: string | null })?.email ?? ''
+
   // Get children info
   const { data: children } = await supabase
     .from('students')
@@ -97,7 +92,7 @@ export default async function ParentProfilePage({
           </div>
           <div>
             <p className="text-lg font-semibold text-gray-900">{profile?.full_name}</p>
-            <p className="text-sm text-gray-500">{profile?.email}</p>
+            <p className="text-sm text-gray-500">{accountEmail}</p>
             <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-medium mt-1 inline-block">
               Parent
             </span>
@@ -120,25 +115,27 @@ export default async function ParentProfilePage({
             <label className="block text-sm font-medium text-gray-700 mb-1.5">CIN</label>
             <input
               type="text"
-              name="cin"
-              required
-              defaultValue={(profile as { cin?: string | null })?.cin || ''}
+              readOnly
+              tabIndex={-1}
+              defaultValue={(profile as { cin?: string | null })?.cin ?? ''}
+              placeholder="Non renseigné"
               autoComplete="off"
-              className="w-full px-4 py-2.5 border border-gray-400 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm font-mono uppercase"
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-lg bg-gray-50 text-gray-700 text-sm font-mono uppercase cursor-default"
             />
             <p className="text-xs text-gray-500 mt-1">
-              Doit correspondre au CIN saisi par l&apos;école pour vos enfants. Si vous le modifiez, les élèves en attente avec ce CIN seront rattachés automatiquement.
+              Renseigné à l&apos;inscription. Pour toute correction, contactez l&apos;administration de l&apos;école.
             </p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Adresse e-mail</label>
             <input
               type="email"
-              disabled
-              defaultValue={profile?.email || ''}
-              className="w-full px-4 py-2.5 border border-gray-400 rounded-lg bg-gray-50 text-gray-400 cursor-not-allowed text-sm"
+              readOnly
+              tabIndex={-1}
+              defaultValue={accountEmail}
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-lg bg-gray-50 text-gray-700 cursor-default text-sm"
             />
-            <p className="text-xs text-gray-400 mt-1">L&apos;adresse e-mail ne peut pas être modifiée</p>
+            <p className="text-xs text-gray-500 mt-1">L&apos;adresse e-mail ne peut pas être modifiée ici.</p>
           </div>
           <button
             type="submit"

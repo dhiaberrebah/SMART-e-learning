@@ -2,14 +2,33 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import Link from 'next/link'
 import SupplyCatalog from './SupplyCatalog'
+import OrderRowActions from './OrderRowActions'
+import { paymentTypeLabel } from '@/lib/supply-order-labels'
+import { SUPPLY_DELIVERY_FEE_DT } from '@/lib/supply-constants'
+
+const PAYMENT_KEYS = new Set(['cash', 'transfer', 'check', 'card', 'invoice'])
 
 async function placeOrder({
-  parentId, studentId, items, total, notes,
-}: { parentId: string; studentId: string; items: any[]; total: number; notes: string }) {
+  parentId,
+  studentId,
+  items,
+  total,
+  notes,
+  paymentType,
+}: {
+  parentId: string
+  studentId: string
+  items: any[]
+  total: number
+  notes: string
+  paymentType: string
+}) {
   'use server'
   const db = createServiceClient()
   const ids = [...new Set(items.map((i: any) => i.id).filter(Boolean))]
   if (ids.length === 0) return { error: 'Panier invalide.' }
+
+  const pt = PAYMENT_KEYS.has(paymentType) ? paymentType : 'invoice'
 
   const { data: rows } = await db.from('supply_catalog').select('id, stock_quantity, available').in('id', ids)
   const byId = new Map((rows ?? []).map((r: any) => [r.id, r]))
@@ -30,6 +49,8 @@ async function placeOrder({
     student_id: studentId,
     items,
     total_amount: total,
+    delivery_cost: SUPPLY_DELIVERY_FEE_DT,
+    payment_type: pt,
     notes: notes || null,
     status: 'pending',
     stock_deducted: false,
@@ -60,7 +81,9 @@ export default async function SuppliesPage() {
   const [{ data: children }, { data: orders }, { data: catalogItems }] = await Promise.all([
     db.from('students').select('id, full_name').eq('parent_id', user!.id).order('full_name'),
     db.from('supply_orders')
-      .select('id, status, total_amount, notes, created_at, items, invoice_path, student:students(full_name)')
+      .select(
+        'id, status, total_amount, delivery_cost, payment_type, notes, created_at, items, invoice_path, student:students(full_name)'
+      )
       .eq('parent_id', user!.id)
       .order('created_at', { ascending: false })
       .limit(20),
@@ -73,7 +96,13 @@ export default async function SuppliesPage() {
 
   const childList = (children ?? []).map((c: any) => ({ id: c.id, full_name: c.full_name }))
 
-  async function handleOrder(data: { studentId: string; items: any[]; total: number; notes: string }) {
+  async function handleOrder(data: {
+    studentId: string
+    items: any[]
+    total: number
+    notes: string
+    paymentType: string
+  }) {
     'use server'
     return placeOrder({ parentId: user!.id, ...data })
   }
@@ -110,10 +139,12 @@ export default async function SuppliesPage() {
                   <th className="px-5 py-3 font-medium">Date</th>
                   <th className="px-5 py-3 font-medium">Enfant</th>
                   <th className="px-5 py-3 font-medium">Articles</th>
+                  <th className="px-5 py-3 font-medium">Paiement</th>
+                  <th className="px-5 py-3 font-medium">Livraison</th>
                   <th className="px-5 py-3 font-medium">Total</th>
                   <th className="px-5 py-3 font-medium">Justificatif</th>
                   <th className="px-5 py-3 font-medium">Statut</th>
-                  <th className="px-5 py-3 font-medium"></th>
+                  <th className="px-5 py-3 font-medium text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
@@ -136,7 +167,18 @@ export default async function SuppliesPage() {
                           {itemList.length > 2 && <span className="text-xs text-gray-400">+{itemList.length - 2}</span>}
                         </div>
                       </td>
-                      <td className="px-5 py-3 font-bold text-gray-900 whitespace-nowrap">{Number(o.total_amount).toFixed(3)} DT</td>
+                      <td className="px-5 py-3 text-gray-700 text-xs max-w-[140px]">
+                        {paymentTypeLabel((o as { payment_type?: string }).payment_type)}
+                      </td>
+                      <td className="px-5 py-3 text-gray-600 whitespace-nowrap text-xs">
+                        {Number((o as { delivery_cost?: number }).delivery_cost ?? 0).toFixed(3)} DT
+                      </td>
+                      <td className="px-5 py-3 font-bold text-gray-900 whitespace-nowrap">
+                        {(
+                          Number(o.total_amount) + Number((o as { delivery_cost?: number }).delivery_cost ?? 0)
+                        ).toFixed(3)}{' '}
+                        DT
+                      </td>
                       <td className="px-5 py-3 text-xs">
                         {(o as { invoice_path?: string | null }).invoice_path ? (
                           <span className="text-emerald-600 font-medium">✓ Envoyé</span>
@@ -149,11 +191,14 @@ export default async function SuppliesPage() {
                           {STATUS_LABEL[o.status] ?? o.status}
                         </span>
                       </td>
-                      <td className="px-5 py-3">
-                        <Link href={`/parent/supplies/orders/${o.id}`}
-                          className="text-xs text-indigo-600 hover:underline font-medium whitespace-nowrap">
-                          Suivre →
-                        </Link>
+                      <td className="px-5 py-3 text-right align-top">
+                        <div className="flex flex-col items-end gap-2">
+                          <OrderRowActions orderId={o.id} status={o.status} />
+                          <Link href={`/parent/supplies/orders/${o.id}`}
+                            className="text-xs text-indigo-600 hover:underline font-medium whitespace-nowrap">
+                            Suivre →
+                          </Link>
+                        </div>
                       </td>
                     </tr>
                   )

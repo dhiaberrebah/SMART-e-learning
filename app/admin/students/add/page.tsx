@@ -4,10 +4,43 @@ import Link from 'next/link'
 import { nextStudentNumber } from '@/lib/student-numbers'
 import { normalizeParentCin } from '@/lib/parent-cin'
 
+const MIN_STUDENT_AGE = 5
+
+/** Dernière date de naissance autorisée (aujourd'hui − N ans). */
+function maxDateOfBirthString(): string {
+  const d = new Date()
+  d.setFullYear(d.getFullYear() - MIN_STUDENT_AGE)
+  const y = d.getFullYear()
+  const mo = String(d.getMonth() + 1).padStart(2, '0')
+  const da = String(d.getDate()).padStart(2, '0')
+  return `${y}-${mo}-${da}`
+}
+
+function isAtLeastAge(dobStr: string, years: number): boolean {
+  const parts = dobStr.split('-').map(Number)
+  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return false
+  const [Y, M, D] = parts
+  const birth = new Date(Y, M - 1, D)
+  if (Number.isNaN(birth.getTime())) return false
+  const today = new Date()
+  let age = today.getFullYear() - birth.getFullYear()
+  const md = today.getMonth() - birth.getMonth()
+  if (md < 0 || (md === 0 && today.getDate() < birth.getDate())) age--
+  return age >= years
+}
+
 async function handleAddStudent(formData: FormData) {
   'use server'
   const supabase = await createClient()
   const num = await nextStudentNumber(supabase)
+
+  const dobRaw = (formData.get('date_of_birth') as string)?.trim()
+  if (dobRaw && !isAtLeastAge(dobRaw, MIN_STUDENT_AGE)) {
+    redirect(
+      '/admin/students/add?error=' +
+        encodeURIComponent(`L'élève doit avoir au moins ${MIN_STUDENT_AGE} ans.`)
+    )
+  }
 
   const parentCinNorm = normalizeParentCin(formData.get('parent_cin') as string)
   if (!parentCinNorm) {
@@ -26,7 +59,7 @@ async function handleAddStudent(formData: FormData) {
 
   const { error } = await supabase.from('students').insert({
     full_name: formData.get('full_name') as string,
-    date_of_birth: (formData.get('date_of_birth') as string) || null,
+    date_of_birth: dobRaw || null,
     student_number: String(num),
     parent_id,
     enrollment_parent_cin,
@@ -50,6 +83,8 @@ export default async function AddStudentPage({
     supabase.from('classes').select('id, name, grade_level').order('name'),
     nextStudentNumber(supabase),
   ])
+
+  const maxDob = maxDateOfBirthString()
 
   return (
     <div className="p-6 max-w-2xl mx-auto">
@@ -100,8 +135,18 @@ export default async function AddStudentPage({
             <input
               type="date"
               name="date_of_birth"
+              max={maxDob}
               className="w-full max-w-xs px-4 py-2.5 border border-gray-400 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
             />
+            <p className="text-xs text-gray-500 mt-1">
+              L&apos;élève doit avoir au moins {MIN_STUDENT_AGE} ans (date de naissance au plus tard le{' '}
+              {new Date(maxDob + 'T12:00:00').toLocaleDateString('fr-FR', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+              })}
+              ).
+            </p>
           </div>
 
           <div className="rounded-lg border-2 border-gray-900 bg-gray-50 p-4">

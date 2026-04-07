@@ -1,37 +1,36 @@
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { SchoolEventsList, type SchoolEventRow } from '@/components/events/SchoolEventsList'
 
-export default async function ParentEventsPage({
+export default async function TeacherEventsPage({
   searchParams,
 }: {
   searchParams: Promise<{ filter?: string }>
 }) {
   const sp = await searchParams
   const supabase = await createClient()
+  const db = createServiceClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const { data: parentProfile } = await supabase
+  const { data: teacherProfile } = await db
     .from('profiles')
     .select('created_at')
     .eq('id', user!.id)
     .maybeSingle()
 
-  const accountSince = parentProfile?.created_at
-    ? new Date(parentProfile.created_at as string)
+  const accountSince = teacherProfile?.created_at
+    ? new Date(teacherProfile.created_at as string)
     : user?.created_at
       ? new Date(user.created_at)
       : new Date(0)
 
-  const { data: children } = await supabase
-    .from('students')
-    .select('id, full_name, class_id')
-    .eq('parent_id', user!.id)
+  const { data: myClasses } = await db.from('classes').select('id').eq('teacher_id', user!.id)
 
-  const classIds = (children?.map((c) => c.class_id).filter(Boolean) as string[]) || []
+  const classIds = (myClasses?.map((c) => c.id) as string[]) || []
 
-  const { data: allEvents } = await supabase
+  const { data: allEvents } = await db
     .from('events')
     .select(
       `
@@ -73,11 +72,11 @@ export default async function ParentEventsPage({
       displayEvents={displayEvents}
       filter={filter}
       classIds={classIds}
-      variant="parent"
+      variant="teacher"
       upcomingCount={upcomingCount}
       pastCount={pastCount}
-      basePath="/parent/events"
-      pastEmptySubtext="Aucun événement passé depuis votre inscription. Les événements antérieurs à la création de votre compte ne sont pas affichés."
+      basePath="/teacher/events"
+      pastEmptySubtext="Aucun événement passé depuis la création de votre compte. Les événements plus anciens ne sont pas affichés."
     />
   )
 }

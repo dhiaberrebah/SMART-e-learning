@@ -200,6 +200,9 @@ export default async function TeacherDashboard() {
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4 border-b">
             <h2 className="font-semibold text-gray-900">Événements à venir</h2>
+            <Link href="/teacher/events" className="text-sm text-blue-600 hover:underline">
+              Voir tout
+            </Link>
           </div>
           <div className="divide-y divide-gray-50">
             {(upcomingEvents ?? []).length > 0 ? (

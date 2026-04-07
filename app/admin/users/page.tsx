@@ -1,6 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { sendAdminBroadcast } from './actions'
 
 const getRoleBadge = (role: string) => {
   const map: Record<string, string> = {
@@ -16,12 +15,6 @@ const getRoleLabel = (role: string) => {
     parent: 'Parent',
   }
   return map[role] || role
-}
-
-const TARGET_LABEL: Record<string, string> = {
-  all: 'Tous',
-  teacher: 'Enseignants',
-  parent: 'Parents',
 }
 
 function sanitizeIlike(s: string) {
@@ -56,12 +49,6 @@ export default async function UsersPage({
 
   const { data: users, error } = await query
 
-  const { data: recentBroadcasts } = await supabase
-    .from('admin_broadcast_messages')
-    .select('id, title, target_audience, created_at')
-    .order('created_at', { ascending: false })
-    .limit(8)
-
   const list = users ?? []
   const counts = {
     total: list.length,
@@ -74,7 +61,7 @@ export default async function UsersPage({
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Utilisateurs</h1>
-          <p className="text-gray-500 mt-1">Gestion des comptes, filtres et messages à la communauté</p>
+          <p className="text-gray-500 mt-1">Gestion des comptes et filtres</p>
         </div>
         <Link
           href="/admin/users/add"
@@ -89,100 +76,6 @@ export default async function UsersPage({
           {decodeURIComponent(sp.error)}
         </div>
       )}
-      {sp.success === 'broadcast' && (
-        <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-lg mb-6 text-sm">
-          ✓ Message envoyé aux utilisateurs concernés
-        </div>
-      )}
-
-      {/* Message administration */}
-      <div className="bg-white rounded-xl shadow-sm border border-indigo-100 p-6 mb-8">
-        <h2 className="text-sm font-semibold text-gray-900 mb-1">Message de l&apos;administration</h2>
-        <p className="text-xs text-gray-500 mb-4">
-          Le message apparaît sur le tableau de bord et la page « Messages administration » des parents et/ou enseignants
-          selon la cible.
-        </p>
-        <form action={sendAdminBroadcast} className="space-y-4 max-w-2xl">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Titre *</label>
-            <input
-              name="title"
-              required
-              placeholder="Objet du message"
-              className="w-full px-4 py-2.5 border border-gray-400 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Message *</label>
-            <textarea
-              name="body"
-              required
-              rows={4}
-              placeholder="Contenu visible par les destinataires…"
-              className="w-full px-4 py-2.5 border border-gray-400 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 resize-y min-h-[100px]"
-            />
-          </div>
-          <div className="rounded-lg border-2 border-gray-900 bg-gray-50 p-4">
-            <span className="block text-base font-semibold text-gray-900 mb-3">Destinataires</span>
-            <div className="flex flex-col gap-3 text-sm">
-              <label className="flex items-start gap-3 cursor-pointer text-gray-900 font-medium leading-snug">
-                <input
-                  type="radio"
-                  name="target_audience"
-                  value="all"
-                  defaultChecked
-                  className="mt-1 h-4 w-4 shrink-0 border-gray-900 text-gray-900 accent-gray-900"
-                />
-                Tous les utilisateurs (parents + enseignants + autres comptes éligibles)
-              </label>
-              <label className="flex items-start gap-3 cursor-pointer text-gray-900 font-medium leading-snug">
-                <input
-                  type="radio"
-                  name="target_audience"
-                  value="teacher"
-                  className="mt-1 h-4 w-4 shrink-0 border-gray-900 text-gray-900 accent-gray-900"
-                />
-                Enseignants uniquement
-              </label>
-              <label className="flex items-start gap-3 cursor-pointer text-gray-900 font-medium leading-snug">
-                <input
-                  type="radio"
-                  name="target_audience"
-                  value="parent"
-                  className="mt-1 h-4 w-4 shrink-0 border-gray-900 text-gray-900 accent-gray-900"
-                />
-                Parents uniquement
-              </label>
-            </div>
-          </div>
-          <button
-            type="submit"
-            className="px-4 py-2.5 bg-gray-900 text-white rounded-lg hover:bg-black text-sm font-semibold shadow-sm"
-          >
-            Envoyer le message
-          </button>
-        </form>
-
-        {(recentBroadcasts?.length ?? 0) > 0 && (
-          <div className="mt-8 pt-6 border-t border-gray-100">
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Messages récents</h3>
-            <ul className="space-y-2 text-sm">
-              {(recentBroadcasts ?? []).map((m) => (
-                <li key={m.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-gray-600">
-                  <span className="font-medium text-gray-900">{m.title}</span>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
-                    {TARGET_LABEL[m.target_audience] ?? m.target_audience}
-                  </span>
-                  <span className="text-xs text-gray-400">
-                    {new Date(m.created_at).toLocaleString('fr-FR')}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
-
       {/* Filtres */}
       <form method="get" className="bg-white rounded-xl shadow-sm p-4 mb-6 flex flex-col sm:flex-row flex-wrap gap-3 items-end">
         <div className="flex-1 min-w-[200px]">

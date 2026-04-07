@@ -11,28 +11,35 @@ export async function sendAdminBroadcast(formData: FormData) {
   if (!user) redirect('/login')
 
   const { data: prof } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
-  if (prof?.role !== 'admin') redirect('/admin/users?error=' + encodeURIComponent('Accès refusé'))
+  if (prof?.role !== 'admin') {
+    redirect('/admin/messenger?error=' + encodeURIComponent('Accès refusé'))
+  }
 
   const title = String(formData.get('title') ?? '').trim()
   const body = String(formData.get('body') ?? '').trim()
   const target = String(formData.get('target_audience') ?? 'all')
 
   if (!title || !body) {
-    redirect('/admin/users?error=' + encodeURIComponent('Titre et message sont requis'))
+    redirect('/admin/messenger?error=' + encodeURIComponent('Titre et message sont requis'))
   }
   if (!['all', 'teacher', 'parent'].includes(target)) {
-    redirect('/admin/users?error=' + encodeURIComponent('Cible invalide'))
+    redirect('/admin/messenger?error=' + encodeURIComponent('Cible invalide'))
   }
 
-  const { error } = await supabase.from('admin_broadcast_messages').insert({
-    title,
-    body,
-    target_audience: target,
-    created_by: user.id,
-  })
+  const { data: row, error } = await supabase
+    .from('admin_broadcast_messages')
+    .insert({
+      title,
+      body,
+      target_audience: target,
+      created_by: user.id,
+    })
+    .select('id')
+    .single()
 
   if (error) {
-    redirect('/admin/users?error=' + encodeURIComponent(error.message))
+    redirect('/admin/messenger?error=' + encodeURIComponent(error.message))
   }
-  redirect('/admin/users?success=broadcast')
+
+  redirect(`/admin/messenger?thread=${row.id}&success=1`)
 }

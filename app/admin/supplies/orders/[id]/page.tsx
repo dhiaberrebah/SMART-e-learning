@@ -1,47 +1,33 @@
 import { createServiceClient } from '@/lib/supabase/service'
 import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
-import { deductOrderLinesFromStock, restoreOrderLinesToStock } from '@/lib/supply-inventory'
+import { patchSupplyOrderStatus } from '@/lib/supply-order-status'
+import { paymentTypeLabel } from '@/lib/supply-order-labels'
 
-async function updateOrderStatus(formData: FormData) {
+async function quickConfirmOrder(formData: FormData) {
   'use server'
-  const db = createServiceClient()
   const id = formData.get('id') as string
-  const status = formData.get('status') as string
-  const admin_note = formData.get('admin_note') as string
-
-  const { data: prev } = await db
-    .from('supply_orders')
-    .select('status, stock_deducted, items')
-    .eq('id', id)
-    .maybeSingle()
-
-  if (!prev) redirect('/admin/supplies/orders')
-
-  let stock_deducted = Boolean(prev.stock_deducted)
-
-  if (status === 'delivered' && prev.status !== 'delivered' && !prev.stock_deducted) {
-    await deductOrderLinesFromStock(db, prev.items)
-    stock_deducted = true
-  } else if (prev.status === 'delivered' && status !== 'delivered' && prev.stock_deducted) {
-    await restoreOrderLinesToStock(db, prev.items)
-    stock_deducted = false
-  }
-
-  await db
-    .from('supply_orders')
-    .update({
-      status,
-      notes: admin_note || null,
-      stock_deducted,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', id)
-
+  const db = createServiceClient()
+  const { data: row } = await db.from('supply_orders').select('status').eq('id', id).maybeSingle()
+  if (!row || row.status !== 'pending') redirect(`/admin/supplies/orders/${id}`)
+  const { error } = await patchSupplyOrderStatus(db, id, { status: 'confirmed' })
+  if (error) redirect(`/admin/supplies/orders/${id}?err=${encodeURIComponent(error)}`)
   redirect(`/admin/supplies/orders/${id}?updated=1`)
 }
 
-const STATUS_STEPS = ['pending', 'confirmed', 'shipped', 'delivered']
+async function quickCancelOrder(formData: FormData) {
+  'use server'
+  const id = formData.get('id') as string
+  const db = createServiceClient()
+  const { data: row } = await db.from('supply_orders').select('status').eq('id', id).maybeSingle()
+  if (!row || row.status === 'cancelled' || row.status === 'delivered') {
+    redirect(`/admin/supplies/orders/${id}`)
+  }
+  const { error } = await patchSupplyOrderStatus(db, id, { status: 'cancelled' })
+  if (error) redirect(`/admin/supplies/orders/${id}?err=${encodeURIComponent(error)}`)
+  redirect(`/admin/supplies/orders/${id}?updated=1`)
+}
+
 const STATUS_META: Record<string, { label: string; color: string; icon: string }> = {
   pending:   { label: 'En attente',   color: 'bg-amber-100 text-amber-700 border-amber-300',     icon: '⏳' },
   confirmed: { label: 'Confirmée',    color: 'bg-blue-100 text-blue-700 border-blue-300',        icon: '✅' },
@@ -55,7 +41,7 @@ export default async function AdminOrderDetail({
   searchParams,
 }: {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ updated?: string }>
+  searchParams: Promise<{ updated?: string; err?: string }>
 }) {
   const { id } = await params
   const sp = await searchParams
@@ -64,7 +50,7 @@ export default async function AdminOrderDetail({
   const { data: order } = await db
     .from('supply_orders')
     .select(
-      'id, status, total_amount, notes, created_at, updated_at, items, invoice_path, invoice_uploaded_at, student:students(full_name, class:classes(name)), parent:profiles!parent_id(full_name, email)'
+      'id, status, total_amount, delivery_cost, payment_type, notes, created_at, updated_at, items, invoice_path, invoice_uploaded_at, student:students(full_name, class:classes(name)), parent:profiles!parent_id(full_name, email)'
     )
     .eq('id', id)
     .maybeSingle()
@@ -73,7 +59,6 @@ export default async function AdminOrderDetail({
 
   const items: any[] = Array.isArray(order.items) ? order.items : []
   const meta = STATUS_META[order.status] ?? STATUS_META.pending
-  const currentStepIdx = STATUS_STEPS.indexOf(order.status)
 
   return (
     <div className="p-6 max-w-3xl mx-auto">
@@ -84,6 +69,11 @@ export default async function AdminOrderDetail({
       {sp.updated === '1' && (
         <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 mt-3 text-sm text-emerald-800">
           <span>✅</span><span>Commande mise à jour avec succès.</span>
+        </div>
+      )}
+      {sp.err && (
+        <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3 mt-3 text-sm text-red-800">
+          <span>⚠️</span><span>{sp.err}</span>
         </div>
       )}
 
@@ -99,73 +89,54 @@ export default async function AdminOrderDetail({
         </span>
       </div>
 
-      {/* Timeline */}
-      {order.status !== 'cancelled' && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-5">
-          <h2 className="font-semibold text-gray-800 text-sm mb-4">Progression</h2>
-          <div className="relative">
-            <div className="absolute top-4 left-4 right-4 h-0.5 bg-gray-200 z-0" />
-            <div className="absolute top-4 left-4 h-0.5 bg-indigo-500 z-0 transition-all"
-              style={{ width: currentStepIdx <= 0 ? '0%' : `${(currentStepIdx / (STATUS_STEPS.length - 1)) * 100}%` }} />
-            <div className="relative z-10 flex justify-between">
-              {STATUS_STEPS.map((step, i) => {
-                const done = i <= currentStepIdx
-                const sm = STATUS_META[step]
-                return (
-                  <div key={step} className="flex flex-col items-center gap-1.5 w-1/4">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm border-2 ${done ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white border-gray-200 text-gray-300'}`}>
-                      {done ? '✓' : i + 1}
-                    </div>
-                    <p className={`text-xs font-medium text-center ${done ? 'text-gray-700' : 'text-gray-300'}`}>{sm.label}</p>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
+      {order.status !== 'delivered' && order.status !== 'cancelled' && (
+        <div className="flex flex-wrap gap-3 mb-5">
+          {order.status === 'pending' && (
+            <form action={quickConfirmOrder}>
+              <input type="hidden" name="id" value={id} />
+              <button
+                type="submit"
+                className="inline-flex items-center justify-center px-4 py-2.5 rounded-lg text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
+              >
+                Confirmer la commande
+              </button>
+            </form>
+          )}
+          <form action={quickCancelOrder}>
+            <input type="hidden" name="id" value={id} />
+            <button
+              type="submit"
+              className="inline-flex items-center justify-center px-4 py-2.5 rounded-lg text-sm font-semibold bg-white border-2 border-red-200 text-red-700 hover:bg-red-50 transition-colors"
+            >
+              Annuler la commande
+            </button>
+          </form>
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-5 mb-5">
-        {/* Customer info */}
+      {order.status === 'pending' && (
+        <p className="text-sm text-gray-600 mb-5">
+          Validez ou refusez la commande. La livraison et la déduction de stock sont gérées lorsque le parent marque la commande comme livrée.
+        </p>
+      )}
+
+      <div className="mb-5">
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
           <h2 className="font-semibold text-gray-800 text-sm mb-3">Client</h2>
-          <div className="space-y-2 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
             <div><p className="text-xs text-gray-400">Parent</p><p className="font-medium">{(order as any).parent?.full_name ?? '—'}</p></div>
             <div><p className="text-xs text-gray-400">Email</p><p className="text-gray-600 text-xs">{(order as any).parent?.email ?? '—'}</p></div>
             <div><p className="text-xs text-gray-400">Élève</p><p className="font-medium">{(order as any).student?.full_name ?? '—'}</p></div>
             <div><p className="text-xs text-gray-400">Classe</p><p className="text-gray-600">{(order as any).student?.class?.name ?? '—'}</p></div>
+            <div><p className="text-xs text-gray-400">Mode de paiement</p><p className="font-medium">{(order as { payment_type?: string }).payment_type ? paymentTypeLabel((order as { payment_type: string }).payment_type) : '—'}</p></div>
+            <div><p className="text-xs text-gray-400">Frais de livraison</p><p className="font-medium">{Number((order as { delivery_cost?: number }).delivery_cost ?? 0).toFixed(3)} DT</p></div>
           </div>
-        </div>
-
-        {/* Update status */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-          <h2 className="font-semibold text-gray-800 text-sm mb-3">Modifier le statut</h2>
-          <p className="text-xs text-gray-500 mb-3">
-            Après vérification du paiement sur le justificatif ci-dessous, passez la commande en <strong>Livrée</strong>{' '}
-            (les stocks sont déduits à la livraison).
-          </p>
-          <form action={updateOrderStatus} className="space-y-3">
-            <input type="hidden" name="id" value={id} />
-            <div>
-              <label className="text-xs text-gray-500 font-medium block mb-1">Statut</label>
-              <select name="status" defaultValue={order.status}
-                className="w-full border border-gray-400 rounded-lg px-2 py-2 text-sm focus:ring-2 focus:ring-indigo-300 focus:outline-none">
-                {Object.entries(STATUS_META).map(([val, m]) => (
-                  <option key={val} value={val}>{m.icon} {m.label}</option>
-                ))}
-              </select>
+          {(order as { notes?: string | null }).notes ? (
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <p className="text-xs text-gray-400 mb-1">Remarque parent</p>
+              <p className="text-sm text-gray-700">{(order as { notes: string }).notes}</p>
             </div>
-            <div>
-              <label className="text-xs text-gray-500 font-medium block mb-1">Note interne</label>
-              <textarea name="admin_note" rows={2} defaultValue={order.notes ?? ''}
-                placeholder="Commentaire pour le parent…"
-                className="w-full border border-gray-400 rounded-lg px-2 py-1.5 text-xs resize-none focus:ring-2 focus:ring-indigo-300 focus:outline-none" />
-            </div>
-            <button type="submit"
-              className="w-full py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition-colors">
-              Enregistrer
-            </button>
-          </form>
+          ) : null}
         </div>
       </div>
 
@@ -232,9 +203,21 @@ export default async function AdminOrderDetail({
             </div>
           ))}
         </div>
-        <div className="px-5 py-3 bg-gray-50 border-t flex justify-between items-center">
-          <span className="font-semibold text-gray-700 text-sm">Total</span>
-          <span className="text-lg font-bold text-indigo-600">{Number(order.total_amount).toFixed(3)} DT</span>
+        <div className="px-5 py-3 bg-gray-50 border-t space-y-2">
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-gray-600">Sous-total articles</span>
+            <span className="font-medium text-gray-900">{Number(order.total_amount).toFixed(3)} DT</span>
+          </div>
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-gray-600">Livraison</span>
+            <span className="font-medium text-gray-900">{Number((order as { delivery_cost?: number }).delivery_cost ?? 0).toFixed(3)} DT</span>
+          </div>
+          <div className="flex justify-between items-center pt-2 border-t border-gray-200">
+            <span className="font-semibold text-gray-700 text-sm">Total à payer</span>
+            <span className="text-lg font-bold text-indigo-600">
+              {(Number(order.total_amount) + Number((order as { delivery_cost?: number }).delivery_cost ?? 0)).toFixed(3)} DT
+            </span>
+          </div>
         </div>
       </div>
     </div>

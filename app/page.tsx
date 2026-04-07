@@ -123,8 +123,8 @@ export default async function Home({
                 <div className="rounded-3xl shadow-2xl overflow-hidden relative z-10 ring-2 ring-white bg-gradient-to-br from-teal-400/20 to-cyan-500/10">
                   <div className="relative aspect-[4/3] w-full">
                     <Image
-                      src="/why-almourabi-1.png"
-                      alt="Cours en ligne, livres numériques et vidéos pédagogiques"
+                      src="/images%20(1).jpg"
+                      alt="Élèves du primaire en classe autour d'un globe"
                       fill
                       className="object-cover object-center"
                       sizes="(max-width: 1024px) 100vw, 520px"
