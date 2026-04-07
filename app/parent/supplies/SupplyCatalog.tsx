@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { SUPPLY_DELIVERY_FEE_DT } from '@/lib/supply-constants'
 
 export type CatalogItem = {
   id: string
@@ -23,7 +24,13 @@ export default function SupplyCatalog({
 }: {
   catalog: CatalogItem[]
   children: { id: string; full_name: string }[]
-  onOrder: (data: { studentId: string; items: CartItem[]; total: number; notes: string }) => Promise<{ error?: string }>
+  onOrder: (data: {
+    studentId: string
+    items: CartItem[]
+    total: number
+    notes: string
+    paymentType: string
+  }) => Promise<{ error?: string }>
 }) {
   const categories = ['Tous', ...Array.from(new Set(catalog.map(i => i.category)))]
 
@@ -32,6 +39,8 @@ export default function SupplyCatalog({
   const [cart, setCart] = useState<CartItem[]>([])
   const [selectedChild, setSelectedChild] = useState(children[0]?.id ?? '')
   const [notes, setNotes] = useState('')
+  const [paymentType, setPaymentType] = useState('invoice')
+  const [deliveryCost, setDeliveryCost] = useState('')
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
@@ -68,13 +77,20 @@ export default function SupplyCatalog({
       )
   }
 
-  const total = cart.reduce((sum, c) => sum + Number(c.unit_price) * c.quantity, 0)
+  const subtotal = cart.reduce((sum, c) => sum + Number(c.unit_price) * c.quantity, 0)
+  const total = subtotal + SUPPLY_DELIVERY_FEE_DT
 
   const handleOrder = async () => {
     if (!selectedChild) { setError('Veuillez sélectionner un enfant.'); return }
     if (cart.length === 0) { setError('Votre panier est vide.'); return }
     setLoading(true); setError('')
-    const res = await onOrder({ studentId: selectedChild, items: cart, total, notes })
+    const res = await onOrder({
+      studentId: selectedChild,
+      items: cart,
+      total: subtotal,
+      notes,
+      paymentType,
+    })
     setLoading(false)
     if (res.error) { setError(res.error); return }
     setSuccess(true); setCart([]); setNotes('')
@@ -224,8 +240,30 @@ export default function SupplyCatalog({
           )}
 
           <div className="px-4 py-3 border-t border-gray-100 space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-500">Total estimé</span>
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-gray-500">Sous-total articles</span>
+              <span className="font-semibold text-gray-800">{subtotal.toFixed(3)} DT</span>
+            </div>
+            <div className="flex justify-between items-center text-sm bg-gray-50 rounded-lg px-2 py-2">
+              <span className="text-gray-600">Livraison (forfait)</span>
+              <span className="font-semibold text-gray-800">{SUPPLY_DELIVERY_FEE_DT.toFixed(3)} DT</span>
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 font-medium block mb-1">Mode de paiement prévu</label>
+              <select
+                value={paymentType}
+                onChange={(e) => setPaymentType(e.target.value)}
+                className="w-full border border-gray-400 rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-indigo-300 focus:outline-none"
+              >
+                <option value="invoice">Facture école</option>
+                <option value="cash">Espèces</option>
+                <option value="transfer">Virement bancaire</option>
+                <option value="check">Chèque</option>
+                <option value="card">Carte bancaire</option>
+              </select>
+            </div>
+            <div className="flex justify-between items-center pt-1 border-t border-gray-100">
+              <span className="text-sm font-medium text-gray-700">Total estimé</span>
               <span className="text-base font-bold text-indigo-600">{total.toFixed(3)} DT</span>
             </div>
             <div>

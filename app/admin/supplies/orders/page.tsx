@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/service'
 import Link from 'next/link'
+import { paymentTypeLabel } from '@/lib/supply-order-labels'
 
 const STATUS_COLOR: Record<string, string> = {
   pending:   'bg-amber-100 text-amber-700',
@@ -24,7 +25,7 @@ export default async function AdminOrdersPage({
   let query = db
     .from('supply_orders')
     .select(
-      'id, status, total_amount, notes, created_at, items, invoice_path, student:students(full_name, class:classes(name)), parent:profiles!parent_id(full_name)'
+      'id, status, total_amount, delivery_cost, payment_type, notes, created_at, items, invoice_path, student:students(full_name, class:classes(name)), parent:profiles!parent_id(full_name)'
     )
     .order('created_at', { ascending: false })
 
@@ -67,7 +68,10 @@ export default async function AdminOrdersPage({
               <th className="px-5 py-3 font-medium">Parent</th>
               <th className="px-5 py-3 font-medium">Élève / Classe</th>
               <th className="px-5 py-3 font-medium">Articles</th>
+              <th className="px-5 py-3 font-medium">Paiement</th>
+              <th className="px-5 py-3 font-medium">Livraison</th>
               <th className="px-5 py-3 font-medium">Total</th>
+              <th className="px-5 py-3 font-medium">Scan</th>
               <th className="px-5 py-3 font-medium">Statut</th>
               <th className="px-5 py-3 font-medium"></th>
             </tr>
@@ -75,7 +79,7 @@ export default async function AdminOrdersPage({
           <tbody className="divide-y divide-gray-50">
             {(orders ?? []).length === 0 ? (
               <tr>
-                <td colSpan={9} className="text-center text-gray-400 py-10">Aucune commande</td>
+                <td colSpan={11} className="text-center text-gray-400 py-10">Aucune commande</td>
               </tr>
             ) : (orders as any[]).map(o => (
               <tr key={o.id} className="hover:bg-gray-50 transition-colors">
@@ -98,7 +102,18 @@ export default async function AdminOrdersPage({
                     {(o.items ?? []).length > 2 && <span className="text-xs text-gray-400">+{(o.items ?? []).length - 2}</span>}
                   </div>
                 </td>
-                <td className="px-5 py-3 font-bold text-gray-900 whitespace-nowrap">{Number(o.total_amount).toFixed(3)} DT</td>
+                <td className="px-5 py-3 text-xs text-gray-700 max-w-[120px]">
+                  {paymentTypeLabel((o as { payment_type?: string }).payment_type)}
+                </td>
+                <td className="px-5 py-3 text-gray-600 whitespace-nowrap text-xs">
+                  {Number((o as { delivery_cost?: number }).delivery_cost ?? 0).toFixed(3)} DT
+                </td>
+                <td className="px-5 py-3 font-bold text-gray-900 whitespace-nowrap">
+                  {(
+                    Number(o.total_amount) + Number((o as { delivery_cost?: number }).delivery_cost ?? 0)
+                  ).toFixed(3)}{' '}
+                  DT
+                </td>
                 <td className="px-5 py-3">
                   {o.invoice_path ? (
                     <a

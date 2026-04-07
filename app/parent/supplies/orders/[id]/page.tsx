@@ -3,21 +3,31 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import InvoiceUploadForm from './InvoiceUploadForm'
+import OrderRowActions from '../../OrderRowActions'
+import { paymentTypeLabel } from '@/lib/supply-order-labels'
 
 const STATUS_STEPS = ['pending', 'confirmed', 'shipped', 'delivered']
 
 function pendingDesc(hasInvoice: boolean) {
+  const tail =
+    " Dès que vous avez récupéré les articles, utilisez le bouton « Marquer comme livrée » en haut de la page."
   if (hasInvoice) {
-    return "Votre justificatif de paiement a été reçu. L'administration vérifie le paiement avant de marquer la commande comme livrée."
+    return (
+      "Votre justificatif de paiement a été reçu. L'administration peut valider le paiement." +
+      tail
+    )
   }
-  return "Réglez la facture remise par l'école, puis téléversez une photo ou un scan de cette facture ci-dessous. L'école validera le paiement et passera la commande en « Livrée »."
+  return (
+    "Réglez la facture remise par l'école, puis téléversez une photo ou un scan de cette facture ci-dessous." +
+    tail
+  )
 }
 
 const STATUS_META: Record<string, { label: string; color: string; icon: string; desc: string }> = {
   pending:   { label: 'En attente',     color: 'text-amber-600 bg-amber-100 border-amber-300',   icon: '⏳', desc: '' },
   confirmed: { label: 'Confirmée',      color: 'text-blue-600 bg-blue-100 border-blue-300',      icon: '✅', desc: "Votre commande a été prise en charge par l'administration." },
   shipped:   { label: 'En livraison',   color: 'text-purple-600 bg-purple-100 border-purple-300',icon: '🚚', desc: "Votre commande est en cours de livraison." },
-  delivered: { label: 'Livrée',         color: 'text-emerald-600 bg-emerald-100 border-emerald-300', icon: '📦', desc: "La commande est marquée livrée : le paiement a été vérifié par l'école." },
+  delivered: { label: 'Livrée',         color: 'text-emerald-600 bg-emerald-100 border-emerald-300', icon: '📦', desc: "Commande livrée (confirmée par vous ou par l'école)." },
   cancelled: { label: 'Annulée',        color: 'text-red-600 bg-red-100 border-red-300',         icon: '❌', desc: "Votre commande a été annulée." },
 }
 
@@ -30,7 +40,7 @@ export default async function ParentOrderDetail({ params }: { params: Promise<{ 
   const { data: order } = await db
     .from('supply_orders')
     .select(
-      'id, status, total_amount, notes, created_at, updated_at, items, invoice_path, invoice_uploaded_at, student:students(full_name, class:classes(name))'
+      'id, status, total_amount, delivery_cost, payment_type, notes, created_at, updated_at, items, invoice_path, invoice_uploaded_at, student:students(full_name, class:classes(name))'
     )
     .eq('id', id)
     .eq('parent_id', user!.id)
@@ -53,16 +63,19 @@ export default async function ParentOrderDetail({ params }: { params: Promise<{ 
         <Link href="/parent/supplies" className="text-emerald-600 hover:underline">← Fournitures scolaires</Link>
       </div>
 
-      <div className="flex items-center justify-between mt-3 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-3 mb-6">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Commande #{id.slice(0, 8).toUpperCase()}</h1>
           <p className="text-gray-400 text-sm mt-0.5">
             Passée le {new Date(order.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
         </div>
-        <span className={`text-sm font-semibold px-3 py-1.5 rounded-full border ${meta.color}`}>
-          {meta.icon} {meta.label}
-        </span>
+        <div className="flex flex-col items-stretch sm:items-end gap-2">
+          <span className={`text-sm font-semibold px-3 py-1.5 rounded-full border self-start sm:self-end ${meta.color}`}>
+            {meta.icon} {meta.label}
+          </span>
+          <OrderRowActions orderId={order.id} status={order.status} layout="row" />
+        </div>
       </div>
 
       {/* Status timeline */}
@@ -122,6 +135,18 @@ export default async function ParentOrderDetail({ params }: { params: Promise<{ 
             <p className="text-xs text-gray-400 mb-0.5">Classe</p>
             <p className="font-medium text-gray-900">{(order as any).student?.class?.name ?? '—'}</p>
           </div>
+          <div>
+            <p className="text-xs text-gray-400 mb-0.5">Paiement prévu</p>
+            <p className="font-medium text-gray-900">
+              {paymentTypeLabel((order as { payment_type?: string }).payment_type)}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-400 mb-0.5">Frais de livraison</p>
+            <p className="font-medium text-gray-900">
+              {Number((order as { delivery_cost?: number }).delivery_cost ?? 0).toFixed(3)} DT
+            </p>
+          </div>
           {order.notes && (
             <div className="col-span-2">
               <p className="text-xs text-gray-400 mb-0.5">Remarques</p>
@@ -154,9 +179,26 @@ export default async function ParentOrderDetail({ params }: { params: Promise<{ 
             </div>
           ))}
         </div>
-        <div className="px-5 py-3 bg-gray-50 border-t flex items-center justify-between">
-          <span className="text-sm font-semibold text-gray-700">Total</span>
-          <span className="text-lg font-bold text-indigo-600">{Number(order.total_amount).toFixed(3)} DT</span>
+        <div className="px-5 py-3 bg-gray-50 border-t space-y-2">
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-600">Sous-total articles</span>
+            <span className="font-medium">{Number(order.total_amount).toFixed(3)} DT</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-600">Livraison</span>
+            <span className="font-medium">
+              {Number((order as { delivery_cost?: number }).delivery_cost ?? 0).toFixed(3)} DT
+            </span>
+          </div>
+          <div className="flex items-center justify-between pt-2 border-t border-gray-200">
+            <span className="text-sm font-semibold text-gray-700">Total</span>
+            <span className="text-lg font-bold text-indigo-600">
+              {(
+                Number(order.total_amount) + Number((order as { delivery_cost?: number }).delivery_cost ?? 0)
+              ).toFixed(3)}{' '}
+              DT
+            </span>
+          </div>
         </div>
       </div>
     </div>

@@ -48,28 +48,52 @@ export default async function ParentResourcesPage({
     .select('id, full_name, class_id, class:classes(id, name)')
     .eq('parent_id', user!.id)
 
-  const classIds = (children ?? []).map((c: any) => c.class_id).filter(Boolean)
+  const classIdsFromChildren = (children ?? [])
+    .map((c: any) => c.class_id)
+    .filter(Boolean)
 
-  // Fetch all content for those classes (or all if no children linked)
-  let query = db
-    .from('pedagogical_contents')
-    .select('id, title, description, file_path, mime_type, size_bytes, created_at, class_id, class:classes(name), teacher:profiles!teacher_id(full_name)')
-    .order('created_at', { ascending: false })
-
-  if (classIds.length > 0) {
-    if (sp.class_id) {
-      query = query.eq('class_id', sp.class_id) as any
-    } else {
-      query = query.in('class_id', classIds) as any
+  const dedupeClasses = (entries: { id: string; name: string }[]) => {
+    const m = new Map<string, { id: string; name: string }>()
+    for (const e of entries) {
+      if (e.id && e.name) m.set(e.id, e)
     }
+    return Array.from(m.values()).sort((a, b) =>
+      a.name.localeCompare(b.name, 'fr')
+    )
   }
 
-  const { data: contents } = await query
+  let contents: any[] = []
+  let allClasses: { id: string; name: string }[] = []
 
-  // Build unique classes list for filter
-  const allClasses = (children ?? [])
-    .map((c: any) => ({ id: c.class_id, name: c.class?.name }))
-    .filter((c: any) => c.id && c.name)
+  if (classIdsFromChildren.length > 0) {
+    let query = db
+      .from('pedagogical_contents')
+      .select(
+        'id, title, description, file_path, mime_type, size_bytes, created_at, class_id, class:classes(name), teacher:profiles!teacher_id(full_name)'
+      )
+      .order('created_at', { ascending: false })
+
+    const cid =
+      sp.class_id && classIdsFromChildren.includes(sp.class_id)
+        ? sp.class_id
+        : undefined
+    if (cid) {
+      query = query.eq('class_id', cid) as any
+    } else {
+      query = query.in('class_id', classIdsFromChildren) as any
+    }
+
+    const { data } = await query
+    contents = data ?? []
+    allClasses = dedupeClasses(
+      (children ?? []).map((c: any) => ({
+        id: c.class_id,
+        name: c.class?.name,
+      }))
+    )
+  } else {
+    contents = []
+  }
 
   // Group by class for display
   const grouped: Record<string, { className: string; items: any[] }> = {}
@@ -126,8 +150,28 @@ export default async function ParentResourcesPage({
       {totalCount === 0 ? (
         <div className="bg-white rounded-xl shadow-sm p-12 text-center">
           <div className="text-5xl mb-4">📚</div>
-          <p className="text-gray-600 font-medium">Aucune ressource disponible pour le moment.</p>
-          <p className="text-gray-400 text-sm mt-1">Les cours et documents publiés par les enseignants apparaîtront ici.</p>
+          {(children ?? []).length === 0 ? (
+            <>
+              <p className="text-gray-600 font-medium">Ressources non disponibles</p>
+              <p className="text-gray-400 text-sm mt-1">
+                Liez d&apos;abord vos enfants (CIN sur Mon profil) pour accéder aux cours et documents de leurs classes.
+              </p>
+            </>
+          ) : classIdsFromChildren.length === 0 ? (
+            <>
+              <p className="text-gray-600 font-medium">Ressources non disponibles</p>
+              <p className="text-gray-400 text-sm mt-1">
+                Aucune classe n&apos;est encore associée à vos enfants ; les ressources apparaîtront ici une fois l&apos;affectation faite par l&apos;école.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-gray-600 font-medium">Aucune ressource disponible pour le moment.</p>
+              <p className="text-gray-400 text-sm mt-1">
+                Les cours et documents publiés par les enseignants apparaîtront ici.
+              </p>
+            </>
+          )}
         </div>
       ) : sp.class_id ? (
         /* Single class flat list */
