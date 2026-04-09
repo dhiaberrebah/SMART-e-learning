@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { normalizeParentCin } from '@/lib/parent-cin'
+import { AuthSchoolHeader } from '@/components/auth/AuthSchoolHeader'
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -80,14 +81,8 @@ export default function RegisterPage() {
           </Link>
         </div>
         <div>
-          <div className="flex justify-center mb-4">
-            <div className="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center">
-              <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-            </div>
-          </div>
-          <h2 className="text-center text-3xl font-bold text-gray-900">Créer un compte parent</h2>
+          <AuthSchoolHeader />
+          <h2 className="text-center text-2xl font-bold text-gray-900">Créer un compte parent</h2>
           <p className="mt-2 text-center text-sm text-gray-600">
             Ou{' '}
             <Link href="/login" className="font-medium text-indigo-600 hover:text-indigo-500">

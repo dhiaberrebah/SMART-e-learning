@@ -20,9 +20,9 @@ export default async function TeacherLayout({ children }: { children: React.Reac
   if (profile?.role !== 'teacher') redirect('/')
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen max-h-screen bg-gray-50 overflow-hidden">
       <TeacherSidebar profile={profile} signOutAction={signOut} />
-      <div className="flex-1 overflow-auto">{children}</div>
+      <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden">{children}</div>
     </div>
   )
 }

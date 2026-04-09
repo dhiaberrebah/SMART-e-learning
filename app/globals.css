@@ -25,6 +25,184 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* —— Landing (home) motion —— */
+@keyframes home-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(1.15rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes home-nav-in {
+  from {
+    opacity: 0;
+    transform: translateY(-0.75rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes home-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes home-float-soft {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes home-blob {
+  0%,
+  100% {
+    opacity: 0.28;
+    transform: scale(1) translate(0, 0);
+  }
+  33% {
+    opacity: 0.42;
+    transform: scale(1.06) translate(4%, -2%);
+  }
+  66% {
+    opacity: 0.35;
+    transform: scale(0.98) translate(-3%, 3%);
+  }
+}
+
+@keyframes home-shine {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.home-nav-in {
+  animation: home-nav-in 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.home-fade-up {
+  animation: home-fade-up 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.home-scale-in {
+  animation: home-scale-in 0.95s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.home-float {
+  animation: home-float-soft 4.5s ease-in-out infinite;
+}
+
+.home-float-slow {
+  animation: home-float-soft 6s ease-in-out infinite 0.8s;
+}
+
+.home-blob {
+  animation: home-blob 12s ease-in-out infinite;
+}
+
+.home-blob-delay {
+  animation: home-blob 14s ease-in-out infinite 3s;
+}
+
+.home-accent-text {
+  background: linear-gradient(
+    115deg,
+    #4338ca 0%,
+    #6366f1 35%,
+    #818cf8 55%,
+    #4f46e5 100%
+  );
+  background-size: 220% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: home-shine 7s ease-in-out infinite;
+}
+
+.home-delay-1 {
+  animation-delay: 0.09s;
+}
+.home-delay-2 {
+  animation-delay: 0.18s;
+}
+.home-delay-3 {
+  animation-delay: 0.27s;
+}
+.home-delay-4 {
+  animation-delay: 0.38s;
+}
+.home-delay-5 {
+  animation-delay: 0.48s;
+}
+.home-delay-6 {
+  animation-delay: 0.58s;
+}
+
+.home-card-hover {
+  transition:
+    transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.35s ease,
+    border-color 0.25s ease;
+}
+
+.home-card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow:
+    0 20px 40px -20px rgb(99 102 241 / 0.25),
+    0 0 0 1px rgb(99 102 241 / 0.08);
+}
+
+.home-section-fade {
+  animation: home-fade-up 0.85s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-nav-in,
+  .home-fade-up,
+  .home-scale-in,
+  .home-float,
+  .home-float-slow,
+  .home-blob,
+  .home-blob-delay,
+  .home-accent-text,
+  .home-section-fade {
+    animation: none !important;
+    animation-delay: 0s !important;
+    opacity: 1;
+    transform: none;
+  }
+
+  .home-accent-text {
+    background: none;
+    -webkit-background-clip: unset;
+    background-clip: unset;
+    color: #4f46e5;
+  }
+
+  .home-card-hover:hover {
+    transform: none;
+  }
+}
+
 /* Input visibility overrides — unlayered so they win over Tailwind utilities */
 input:not([type="radio"]):not([type="checkbox"]):not([type="range"]):not([type="file"]):not([type="submit"]):not([type="button"]),
 select,

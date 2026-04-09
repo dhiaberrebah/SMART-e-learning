@@ -9,9 +9,27 @@ async function updateProfile(formData: FormData) {
   if (!user) redirect('/login')
 
   const db = createServiceClient()
-  const fullName = formData.get('full_name') as string
+  const fullName = (formData.get('full_name') as string)?.trim() ?? ''
+  if (!fullName) {
+    redirect('/teacher/profile?error=' + encodeURIComponent('Le nom complet est obligatoire.'))
+  }
+  const phone = ((formData.get('phone') as string) || '').trim() || null
+  const address = ((formData.get('address') as string) || '').trim() || null
+  const rd = ((formData.get('recruitment_date') as string) || '').trim() || null
 
-  await db.from('profiles').update({ full_name: fullName }).eq('id', user.id)
+  const { error: updErr } = await db
+    .from('profiles')
+    .update({
+      full_name: fullName,
+      phone,
+      address,
+      recruitment_date: rd,
+    })
+    .eq('id', user.id)
+
+  if (updErr) {
+    redirect('/teacher/profile?error=' + encodeURIComponent(updErr.message))
+  }
 
   const newPassword = formData.get('new_password') as string
   if (newPassword && newPassword.length >= 6) {
@@ -21,17 +39,27 @@ async function updateProfile(formData: FormData) {
   redirect('/teacher/profile?saved=1')
 }
 
-export default async function TeacherProfile({ searchParams }: { searchParams: Promise<{ saved?: string }> }) {
+export default async function TeacherProfile({ searchParams }: { searchParams: Promise<{ saved?: string; error?: string }> }) {
   const sp = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
   const db = createServiceClient()
 
   const [{ data: profile }, { data: classes }, { data: subjects }] = await Promise.all([
-    db.from('profiles').select('*').eq('id', user!.id).maybeSingle(),
-    db.from('classes').select('id, name, grade_level, academic_year').eq('teacher_id', user!.id).order('name'),
-    db.from('subjects').select('id, name, class_id').eq('teacher_id', user!.id).order('name'),
+    db
+      .from('profiles')
+      .select('full_name, phone, address, recruitment_date')
+      .eq('id', user.id)
+      .maybeSingle(),
+    db.from('classes').select('id, name, grade_level, academic_year').eq('teacher_id', user.id).order('name'),
+    db.from('subjects').select('id, name, class_id').eq('teacher_id', user.id).order('name'),
   ])
+
+  const phoneFromProfile =
+    profile?.phone != null && String(profile.phone).trim() !== '' ? String(profile.phone).trim() : ''
+  const phoneFromAuth = user.phone?.trim() ?? ''
+  const phoneDisplay = phoneFromProfile || phoneFromAuth
 
   const classIds = (classes ?? []).map((c: any) => c.id)
   const { data: students } = classIds.length > 0
@@ -45,6 +73,11 @@ export default async function TeacherProfile({ searchParams }: { searchParams: P
         <p className="text-gray-500 text-sm mt-1">Gérez vos informations personnelles</p>
       </div>
 
+      {sp.error && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+          {decodeURIComponent(sp.error)}
+        </div>
+      )}
       {sp.saved && (
         <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-emerald-700">
           ✅ Profil mis à jour avec succès.
@@ -59,7 +92,7 @@ export default async function TeacherProfile({ searchParams }: { searchParams: P
             <form action={updateProfile} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Nom complet</label>
-                <input type="text" name="full_name" defaultValue={profile?.full_name ?? ''}
+                <input type="text" name="full_name" required defaultValue={profile?.full_name?.trim() ?? ''}
                   className="w-full border border-gray-400 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
               </div>
               <div>
@@ -67,6 +100,40 @@ export default async function TeacherProfile({ searchParams }: { searchParams: P
                 <input type="email" value={user?.email ?? ''} disabled
                   className="w-full border border-gray-100 rounded-lg px-3 py-2.5 text-sm bg-gray-50 text-gray-400 cursor-not-allowed" />
                 <p className="text-xs text-gray-400 mt-1">L'e-mail ne peut pas être modifié ici.</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Téléphone</label>
+                <input
+                  type="tel"
+                  name="phone"
+                  autoComplete="tel"
+                  defaultValue={phoneDisplay}
+                  placeholder="ex. +216 …"
+                  className="w-full border border-gray-400 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Adresse</label>
+                <textarea
+                  name="address"
+                  rows={3}
+                  defaultValue={profile?.address?.trim() ?? ''}
+                  placeholder="Adresse postale complète"
+                  className="w-full border border-gray-400 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y min-h-[4.5rem]"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Date de recrutement</label>
+                <input
+                  type="date"
+                  name="recruitment_date"
+                  defaultValue={
+                    profile?.recruitment_date
+                      ? String(profile.recruitment_date).slice(0, 10)
+                      : ''
+                  }
+                  className="w-full border border-gray-400 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
               </div>
               <div className="pt-4 border-t border-gray-100">
                 <h3 className="text-sm font-semibold text-gray-700 mb-3">Changer le mot de passe</h3>
@@ -96,6 +163,13 @@ export default async function TeacherProfile({ searchParams }: { searchParams: P
             </div>
             <p className="font-semibold text-gray-900">{profile?.full_name}</p>
             <p className="text-sm text-gray-500 mt-0.5">{user?.email}</p>
+            {phoneDisplay ? (
+              <p className="text-sm text-gray-600 mt-1">
+                <a href={`tel:${phoneDisplay.replace(/\s/g, '')}`} className="hover:text-blue-600 hover:underline">
+                  {phoneDisplay}
+                </a>
+              </p>
+            ) : null}
             <span className="inline-block mt-2 text-xs font-medium px-2.5 py-1 bg-blue-100 text-blue-700 rounded-full">
               Enseignant
             </span>
@@ -123,6 +197,14 @@ export default async function TeacherProfile({ searchParams }: { searchParams: P
                   {user?.created_at ? new Date(user.created_at).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }) : '—'}
                 </span>
               </div>
+              {profile?.recruitment_date && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Recrutement</span>
+                  <span className="font-medium text-gray-900">
+                    {new Date(String(profile.recruitment_date) + 'T12:00:00').toLocaleDateString('fr-FR')}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
