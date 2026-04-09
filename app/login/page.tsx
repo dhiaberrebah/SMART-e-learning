@@ -1,18 +1,25 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { AuthSchoolHeader } from '@/components/auth/AuthSchoolHeader'
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [formData, setFormData] = useState({
     email: '',
     password: '',
   })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [resetBanner, setResetBanner] = useState(false)
+
+  useEffect(() => {
+    if (searchParams.get('reset') === 'success') setResetBanner(true)
+  }, [searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -60,8 +67,9 @@ export default function LoginPage() {
             Retour à l'accueil
           </Link>
         </div>
+        <AuthSchoolHeader />
         <div>
-          <h2 className="text-center text-3xl font-bold text-gray-900">
+          <h2 className="text-center text-2xl font-bold text-gray-900">
             Connexion
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
@@ -73,6 +81,11 @@ export default function LoginPage() {
         </div>
 
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+          {resetBanner && (
+            <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-lg text-sm">
+              Mot de passe mis à jour. Vous pouvez vous connecter.
+            </div>
+          )}
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">
               {error}
@@ -115,9 +128,9 @@ export default function LoginPage() {
 
           <div className="flex items-center justify-between">
             <div className="text-sm">
-              <a href="#" className="font-medium text-indigo-600 hover:text-indigo-500">
+              <Link href="/forgot-password" className="font-medium text-indigo-600 hover:text-indigo-500">
                 Mot de passe oublié ?
-              </a>
+              </Link>
             </div>
           </div>
 
@@ -133,5 +146,19 @@ export default function LoginPage() {
         </form>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+          <p className="text-gray-600 text-sm">Chargement…</p>
+        </div>
+      }
+    >
+      <LoginContent />
+    </Suspense>
   )
 }

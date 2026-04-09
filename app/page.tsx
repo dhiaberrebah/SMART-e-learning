@@ -28,44 +28,44 @@ export default async function Home({
 
   const { data: school } = await supabase
     .from('school_settings')
-    .select(
-      'school_name, study_hours, enrollment_period, registration_fee_dt, tuition_annual_dt, tuition_notes'
-    )
+    .select('school_name')
     .eq('id', true)
     .maybeSingle();
 
-  const showSchoolInfo =
-    school &&
-    (school.registration_fee_dt != null ||
-      school.tuition_annual_dt != null ||
-      (school.study_hours && school.study_hours.trim()) ||
-      (school.enrollment_period && school.enrollment_period.trim()) ||
-      (school.tuition_notes && school.tuition_notes.trim()));
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50/90 to-violet-100/80 relative overflow-x-hidden">
+      <div
+        className="pointer-events-none fixed inset-0 -z-10 opacity-40"
+        aria-hidden
+        style={{
+          backgroundImage:
+            "radial-gradient(ellipse 100% 60% at 0% 0%, rgb(199 210 254 / 0.5), transparent 50%), radial-gradient(ellipse 80% 50% at 100% 20%, rgb(196 181 253 / 0.35), transparent 45%), radial-gradient(ellipse 60% 40% at 50% 100%, rgb(165 243 252 / 0.25), transparent 50%)",
+        }}
+      />
       {/* Navbar */}
-      <nav className="bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-50">
+      <nav className="home-nav-in bg-white/75 backdrop-blur-xl shadow-sm shadow-indigo-100/50 border-b border-white/60 sticky top-0 z-50 supports-[backdrop-filter]:bg-white/65">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-lg flex items-center justify-center shadow-md shadow-indigo-300/40 ring-2 ring-white/80">
                 <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                 </svg>
               </div>
-              <h1 className="text-2xl font-bold text-indigo-600">SMART e-Learning</h1>
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-700 to-violet-600 bg-clip-text text-transparent">
+                SMART e-Learning
+              </h1>
             </div>
-            <div className="flex gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
               <Link
                 href="/login"
-                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-indigo-600 transition-colors"
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-indigo-600 rounded-lg transition-all duration-200 hover:bg-indigo-50/80 hover:scale-[1.02] active:scale-[0.98]"
               >
                 Connexion
               </Link>
               <Link
                 href="/register"
-                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors"
+                className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-indigo-600 to-violet-600 rounded-lg shadow-md shadow-indigo-400/30 hover:shadow-lg hover:shadow-indigo-400/35 hover:from-indigo-500 hover:to-violet-500 transition-all duration-300 hover:scale-[1.03] active:scale-[0.98]"
               >
                 Espace parents
               </Link>
@@ -78,7 +78,7 @@ export default async function Home({
         {/* Hero Section */}
         <section className="relative overflow-hidden">
           <div
-            className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(99,102,241,0.18),transparent)]"
+            className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_90%_55%_at_50%_-15%,rgba(99,102,241,0.22),transparent),radial-gradient(ellipse_50%_40%_at_90%_60%,rgba(167,139,250,0.12),transparent)]"
             aria-hidden
           />
           <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 sm:py-20 lg:py-24">
@@ -87,30 +87,32 @@ export default async function Home({
               <div className="lg:col-span-6 space-y-8">
                 {/* Accroche + titre + CTA */}
                 <header className="space-y-5">
-                  <span className="inline-flex items-center gap-2 bg-indigo-100/90 text-indigo-800 text-sm font-semibold px-4 py-2 rounded-full border border-indigo-200/60 shadow-sm">
-                    <span aria-hidden>🎒</span>
+                  <span className="home-fade-up inline-flex items-center gap-2 bg-white/90 text-indigo-800 text-sm font-semibold px-4 py-2 rounded-full border border-indigo-200/70 shadow-md shadow-indigo-100/50 backdrop-blur-sm">
+                    <span aria-hidden className="inline-block motion-safe:animate-pulse motion-reduce:animate-none">
+                      🎒
+                    </span>
                     {school?.school_name?.trim() ? school.school_name.trim() : "Primaire tunisien — 1re à 6e année"}
                   </span>
-                  <h2 className="text-4xl sm:text-5xl font-bold text-gray-900 leading-[1.1] tracking-tight">
+                  <h2 className="home-fade-up home-delay-1 text-4xl sm:text-5xl font-bold text-gray-900 leading-[1.1] tracking-tight">
                     Plateforme d&apos;apprentissage{" "}
-                    <span className="text-indigo-600">intelligent</span>
+                    <span className="home-accent-text">intelligent</span>
                   </h2>
-                  <p className="text-lg text-gray-600 leading-relaxed max-w-xl">
+                  <p className="home-fade-up home-delay-2 text-lg text-gray-600 leading-relaxed max-w-xl">
                     Suivi personnalisé pour les élèves de l&apos;école primaire en Tunisie. Enseignants, parents et
                     enfants réunis sur une seule plateforme simple et claire.
                   </p>
                 </header>
 
-                <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:gap-4">
+                <div className="home-fade-up home-delay-3 flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:gap-4">
                   <Link
                     href="/register"
-                    className="inline-flex justify-center px-8 py-3.5 text-base font-semibold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200/80"
+                    className="inline-flex justify-center px-8 py-3.5 text-base font-semibold text-white bg-gradient-to-r from-indigo-600 to-violet-600 rounded-xl hover:from-indigo-500 hover:to-violet-500 transition-all duration-300 shadow-lg shadow-indigo-300/50 hover:shadow-xl hover:shadow-indigo-400/40 hover:-translate-y-0.5 active:translate-y-0"
                   >
                     Inscription parent
                   </Link>
                   <Link
                     href="/login"
-                    className="inline-flex justify-center px-8 py-3.5 text-base font-semibold text-indigo-700 bg-white border-2 border-indigo-200 rounded-xl hover:bg-indigo-50 hover:border-indigo-300 transition-colors"
+                    className="inline-flex justify-center px-8 py-3.5 text-base font-semibold text-indigo-700 bg-white/95 border-2 border-indigo-200/90 rounded-xl hover:bg-indigo-50 hover:border-indigo-300 transition-all duration-300 shadow-md shadow-indigo-100/40 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0"
                   >
                     Connexion
                   </Link>
@@ -119,14 +121,14 @@ export default async function Home({
 
             {/* Hero visuel */}
             <div className="lg:col-span-6 relative flex justify-center lg:justify-end">
-              <div className="relative w-full max-w-lg">
-                <div className="rounded-3xl shadow-2xl overflow-hidden relative z-10 ring-2 ring-white bg-gradient-to-br from-teal-400/20 to-cyan-500/10">
+              <div className="relative w-full max-w-lg home-scale-in home-delay-4">
+                <div className="rounded-3xl shadow-2xl shadow-indigo-200/40 overflow-hidden relative z-10 ring-2 ring-white/90 bg-gradient-to-br from-teal-400/25 to-cyan-500/15">
                   <div className="relative aspect-[4/3] w-full">
                     <Image
                       src="/images%20(1).jpg"
                       alt="Élèves du primaire en classe autour d'un globe"
                       fill
-                      className="object-cover object-center"
+                      className="object-cover object-center transition-transform duration-700 ease-out motion-safe:hover:scale-[1.03]"
                       sizes="(max-width: 1024px) 100vw, 520px"
                       priority
                     />
@@ -134,55 +136,58 @@ export default async function Home({
                 </div>
 
                 {/* Floating card 1 — top left */}
-                <div className="absolute -top-4 -left-4 bg-white rounded-2xl shadow-lg px-4 py-3 items-center gap-3 z-20 hidden sm:flex">
-                  <div className="w-9 h-9 bg-green-100 rounded-xl flex items-center justify-center">
-                    <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-gray-800">Cours terminé</p>
-                    <p className="text-xs text-gray-400">Mathématiques</p>
+                <div className="home-fade-up home-delay-5 absolute -top-4 -left-4 z-20 hidden sm:block">
+                  <div className="home-float flex items-center gap-3 bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg shadow-indigo-200/30 px-4 py-3 border border-white/80">
+                    <div className="w-9 h-9 bg-gradient-to-br from-emerald-100 to-teal-100 rounded-xl flex items-center justify-center ring-1 ring-emerald-200/50">
+                      <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-gray-800">Cours terminé</p>
+                      <p className="text-xs text-gray-400">Mathématiques</p>
+                    </div>
                   </div>
                 </div>
 
                 {/* Floating card 2 — bottom right */}
-                <div className="absolute -bottom-4 -right-4 bg-white rounded-2xl shadow-lg px-4 py-3 items-center gap-3 z-20 hidden sm:flex">
-                  <div className="w-9 h-9 bg-indigo-100 rounded-xl flex items-center justify-center">
-                    <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-gray-800">Score moyen</p>
-                    <p className="text-xs text-indigo-600 font-bold">+12% ce mois</p>
+                <div className="home-fade-up home-delay-6 absolute -bottom-4 -right-4 z-20 hidden sm:block">
+                  <div className="home-float-slow flex items-center gap-3 bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg shadow-violet-200/30 px-4 py-3 border border-white/80">
+                    <div className="w-9 h-9 bg-gradient-to-br from-indigo-100 to-violet-100 rounded-xl flex items-center justify-center ring-1 ring-indigo-200/50">
+                      <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-gray-800">Score moyen</p>
+                      <p className="text-xs text-indigo-600 font-bold">+12% ce mois</p>
+                    </div>
                   </div>
                 </div>
 
                 {/* Decorative blobs */}
-                <div className="absolute -z-10 top-8 right-8 w-64 h-64 bg-indigo-200 rounded-full opacity-30 blur-3xl" />
-                <div className="absolute -z-10 bottom-8 left-8 w-48 h-48 bg-blue-200 rounded-full opacity-30 blur-3xl" />
+                <div className="home-blob absolute -z-10 top-8 right-8 w-64 h-64 bg-indigo-300 rounded-full blur-3xl" />
+                <div className="home-blob-delay absolute -z-10 bottom-8 left-8 w-48 h-48 bg-violet-200 rounded-full blur-3xl" />
               </div>
             </div>
           </div>
         </div>
         </section>
 
-        {/* Comptes, plateforme & informations d'inscription (données admin) */}
-        <section className="border-b border-indigo-100 bg-white">
+        {/* Comptes & plateforme */}
+        <section className="border-b border-indigo-100/80 bg-gradient-to-b from-white to-indigo-50/30">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 sm:py-16 lg:py-20">
-            <div className="max-w-3xl mx-auto text-center mb-10">
+            <div className="home-section-fade max-w-3xl mx-auto text-center mb-10">
               <p className="text-sm font-semibold text-indigo-600 uppercase tracking-wide">Accès & informations</p>
               <h2 className="mt-2 text-2xl sm:text-3xl font-bold text-gray-900">
-                Comptes, plateforme et inscriptions
+                Comptes et plateforme
               </h2>
               <p className="mt-3 text-gray-600 leading-relaxed">
-                Comment vous connecter, ce que la plateforme apporte aux familles, et les modalités pratiques
-                (tarifs, horaires, dates) communiquées par l&apos;école.
+                Comment vous connecter et ce que la plateforme apporte aux familles.
               </p>
             </div>
 
-            <div className="rounded-2xl border-2 border-indigo-200/80 bg-indigo-50/90 px-4 py-4 sm:px-8 sm:py-4 text-center mb-10">
+            <div className="home-section-fade home-delay-1 rounded-2xl border border-indigo-200/60 bg-gradient-to-r from-indigo-50/95 via-violet-50/50 to-indigo-50/95 px-4 py-4 sm:px-8 sm:py-5 text-center mb-10 shadow-md shadow-indigo-100/40">
               <p className="text-sm sm:text-base font-semibold text-indigo-950">
                 Compte parent avec CIN · Accès enseignant par l&apos;administration
               </p>
@@ -193,10 +198,11 @@ export default async function Home({
                 { t: "École & maison", d: "Notes, présences et messages au même endroit", emoji: "🏠" },
                 { t: "Contenus clairs", d: "Cours et ressources alignés sur le primaire", emoji: "📚" },
                 { t: "Données protégées", d: "Espaces séparés par rôle et connexion sécurisée", emoji: "🔒" },
-              ].map((item) => (
+              ].map((item, i) => (
                 <li
                   key={item.t}
-                  className="rounded-2xl border border-gray-200 bg-gray-50/80 px-5 py-5 shadow-sm"
+                  className="home-fade-up home-card-hover rounded-2xl border border-gray-200/90 bg-white/90 backdrop-blur-sm px-5 py-5 shadow-sm shadow-indigo-100/20"
+                  style={{ animationDelay: `${0.25 + i * 0.12}s` }}
                 >
                   <p className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
                     <span className="text-xl" aria-hidden>
@@ -208,64 +214,11 @@ export default async function Home({
                 </li>
               ))}
             </ul>
-
-            {showSchoolInfo ? (
-              <div className="max-w-4xl mx-auto rounded-2xl border border-indigo-200/80 bg-gradient-to-b from-white to-indigo-50/40 shadow-md overflow-hidden">
-                <div className="px-5 sm:px-8 py-6 sm:py-8">
-                  <h3 className="text-xs font-bold text-indigo-700 uppercase tracking-wider mb-6">
-                    Inscriptions & tarifs
-                  </h3>
-                  <ul className="grid gap-4 sm:grid-cols-2">
-                    {school?.registration_fee_dt != null && (
-                      <li className="rounded-xl bg-indigo-50 px-5 py-4 border border-indigo-100">
-                        <p className="text-xs text-indigo-600 font-semibold">Frais d&apos;inscription</p>
-                        <p className="text-2xl font-bold text-indigo-800 tabular-nums mt-1">
-                          {Number(school.registration_fee_dt).toFixed(3)} DT
-                        </p>
-                      </li>
-                    )}
-                    {school?.tuition_annual_dt != null && (
-                      <li className="rounded-xl bg-white px-5 py-4 border border-gray-200">
-                        <p className="text-xs text-gray-500 font-semibold">Scolarité annuelle</p>
-                        <p className="text-xl font-bold text-gray-900 tabular-nums mt-1">
-                          {Number(school.tuition_annual_dt).toFixed(3)} DT
-                        </p>
-                      </li>
-                    )}
-                    {school?.study_hours?.trim() && (
-                      <li className="sm:col-span-2 flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-3 text-sm pt-2 border-t border-indigo-100/80">
-                        <span className="text-gray-500 shrink-0 font-medium">Horaires des cours</span>
-                        <span className="font-semibold text-gray-900">{school.study_hours.trim()}</span>
-                      </li>
-                    )}
-                    {school?.enrollment_period?.trim() && (
-                      <li className="sm:col-span-2 flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-3 text-sm">
-                        <span className="text-gray-500 shrink-0 font-medium">Période d&apos;inscriptions</span>
-                        <span className="font-semibold text-gray-900 whitespace-pre-line">
-                          {school.enrollment_period.trim()}
-                        </span>
-                      </li>
-                    )}
-                    {school?.tuition_notes?.trim() && (
-                      <li className="sm:col-span-2 text-sm text-gray-600 bg-amber-50/80 border border-amber-100 rounded-xl px-4 py-3 mt-1">
-                        <span className="font-semibold text-amber-900">Remarque · </span>
-                        {school.tuition_notes.trim()}
-                      </li>
-                    )}
-                  </ul>
-                </div>
-              </div>
-            ) : (
-              <p className="text-center text-sm text-gray-500 max-w-xl mx-auto">
-                Les frais, horaires et dates d&apos;inscription s&apos;affichent ici lorsque l&apos;administration les a
-                renseignés dans les paramètres de l&apos;école.
-              </p>
-            )}
           </div>
         </section>
 
         {/* Niveaux — enseignement primaire tunisien (1re–6e année) */}
-        <section className="bg-slate-50 border-y border-slate-100 py-16">
+        <section className="bg-gradient-to-b from-slate-50 to-slate-100/80 border-y border-slate-200/60 py-16">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
               <span className="text-sm font-semibold text-indigo-600 uppercase tracking-wide">École primaire — Tunisie</span>
@@ -280,9 +233,13 @@ export default async function Home({
                 { title: "Cycle primaire", sub: "4e — 6e année", desc: "Consolidation des bases, autonomie et préparation sereine à la suite du parcours.", color: "from-indigo-500 to-violet-600" },
                 { title: "Programme & matières", sub: "Fondamentaux", desc: "Français, arabe, mathématiques, découverte et activités — au rythme du programme tunisien.", color: "from-violet-500 to-purple-600" },
                 { title: "Parents & école", sub: "Lien école — maison", desc: "Présence, notes et ressources des enseignants accessibles pour suivre votre enfant au quotidien.", color: "from-emerald-500 to-teal-600" },
-              ].map((c) => (
-                <div key={c.title} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
-                  <div className={`h-2 bg-gradient-to-r ${c.color}`} />
+              ].map((c, i) => (
+                <div
+                  key={c.title}
+                  className="home-fade-up home-card-hover bg-white rounded-2xl shadow-md shadow-slate-200/40 border border-gray-100/90 overflow-hidden group"
+                  style={{ animationDelay: `${0.15 + i * 0.1}s` }}
+                >
+                  <div className={`h-1.5 bg-gradient-to-r ${c.color} motion-safe:transition-transform motion-safe:duration-500 group-hover:scale-x-[1.02] origin-left`} />
                   <div className="p-6">
                     <p className="text-xs font-semibold text-indigo-600">{c.sub}</p>
                     <h4 className="text-lg font-bold text-gray-900 mt-1">{c.title}</h4>
@@ -346,12 +303,13 @@ export default async function Home({
                 ),
                 ring: "from-slate-600 to-slate-800",
               },
-            ].map((m) => (
+            ].map((m, i) => (
               <div
                 key={m.label}
-                className="group flex flex-col items-center justify-center rounded-2xl bg-white border border-gray-100 py-6 px-3 shadow-sm hover:border-indigo-200 hover:shadow-md hover:-translate-y-0.5 transition-all"
+                className="home-fade-up group flex flex-col items-center justify-center rounded-2xl bg-white/95 border border-gray-100/90 py-6 px-3 shadow-md shadow-indigo-100/20 hover:border-indigo-200/80 hover:shadow-lg hover:shadow-indigo-200/25 motion-safe:hover:-translate-y-1 transition-all duration-300"
+                style={{ animationDelay: `${i * 0.07}s` }}
               >
-                <div className={`mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${m.ring} text-white shadow-lg shadow-indigo-200/50 group-hover:scale-105 transition-transform`}>
+                <div className={`mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${m.ring} text-white shadow-lg shadow-indigo-300/40 ring-2 ring-white/30 group-hover:scale-110 motion-safe:transition-transform motion-safe:duration-300`}>
                   {m.icon}
                 </div>
                 <span className="text-sm font-semibold text-gray-800 text-center leading-tight">{m.label}</span>
@@ -391,7 +349,7 @@ export default async function Home({
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
                     ) },
                   ].map((row) => (
-                    <li key={row.t} className="flex gap-3 rounded-xl border border-teal-100/80 bg-white/80 p-4 shadow-sm">
+                    <li key={row.t} className="home-card-hover flex gap-3 rounded-xl border border-teal-100/80 bg-white/90 backdrop-blur-sm p-4 shadow-md shadow-teal-100/20">
                       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-500 text-white">
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">{row.i}</svg>
                       </span>
@@ -405,7 +363,7 @@ export default async function Home({
               </div>
               <div className="order-1 lg:order-2 relative">
                 <div className="absolute -inset-3 bg-gradient-to-tr from-teal-200/50 to-cyan-200/40 rounded-[2rem] blur-xl -z-10" />
-                <div className="relative rounded-[2rem] overflow-hidden shadow-2xl ring-4 ring-white">
+                <div className="relative rounded-[2rem] overflow-hidden shadow-2xl shadow-teal-200/30 ring-4 ring-white motion-safe:transition-transform motion-safe:duration-500 hover:scale-[1.01]">
                   <div className="relative aspect-[4/3] w-full">
                     <Image
                       src="/why-almourabi-2.png"
@@ -427,7 +385,7 @@ export default async function Home({
             <div className="grid lg:grid-cols-2 gap-12 items-center">
               <div className="relative">
                 <div className="absolute -inset-3 bg-gradient-to-br from-indigo-200/40 to-violet-200/30 rounded-[2rem] blur-xl -z-10" />
-                <div className="relative rounded-[2rem] overflow-hidden shadow-2xl ring-4 ring-indigo-50">
+                <div className="relative rounded-[2rem] overflow-hidden shadow-2xl shadow-indigo-200/25 ring-4 ring-indigo-50/90 motion-safe:transition-transform motion-safe:duration-500 hover:scale-[1.01]">
                   <div className="relative aspect-[4/3] w-full">
                     <Image
                       src="/why-almourabi-3.png"
@@ -463,7 +421,7 @@ export default async function Home({
                 </div>
                 <Link
                   href="/register"
-                  className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-colors"
+                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-300/40 hover:from-indigo-500 hover:to-violet-500 motion-safe:hover:-translate-y-0.5 transition-all duration-300"
                 >
                   Rejoindre l&apos;aventure
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
@@ -474,7 +432,9 @@ export default async function Home({
         </section>
 
         {/* Pourquoi nous — réussite scolaire */}
-        <section className="bg-gradient-to-b from-indigo-950 to-slate-900 text-white py-16">
+        <section className="relative overflow-hidden bg-gradient-to-br from-indigo-950 via-slate-900 to-violet-950 text-white py-16">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_20%_0%,rgba(99,102,241,0.25),transparent),radial-gradient(ellipse_60%_40%_at_100%_80%,rgba(167,139,250,0.12),transparent)]" aria-hidden />
+          <div className="relative">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid lg:grid-cols-2 gap-12 items-center">
               <div>
@@ -503,14 +463,15 @@ export default async function Home({
                   { n: "TN", t: "Contexte local", d: "Pensé pour la Tunisie" },
                   { n: "∞", t: "Ressources", d: "Contenus évolutifs" },
                 ].map((b) => (
-                  <div key={b.t} className="bg-white/5 backdrop-blur rounded-2xl border border-white/10 p-5">
-                    <p className="text-2xl font-bold text-amber-300">{b.n}</p>
+                  <div key={b.t} className="group home-card-hover bg-white/5 backdrop-blur-md rounded-2xl border border-white/15 p-5 shadow-lg shadow-indigo-950/20 hover:border-white/20">
+                    <p className="text-2xl font-bold text-amber-300 motion-safe:transition-transform motion-safe:duration-300 group-hover:scale-105 inline-block origin-left">{b.n}</p>
                     <p className="mt-1 font-semibold text-white">{b.t}</p>
                     <p className="mt-1 text-xs text-indigo-200">{b.d}</p>
                   </div>
                 ))}
               </div>
             </div>
+          </div>
           </div>
         </section>
 
@@ -556,9 +517,9 @@ export default async function Home({
                   desc: "Consultez les rapports, la présence et les performances en temps réel.",
                 },
               ].map(({ step, icon, title, desc }) => (
-                <div key={step} className="flex flex-col items-center text-center">
+                <div key={step} className="flex flex-col items-center text-center group">
                   <div className="relative mb-5">
-                    <div className="w-24 h-24 bg-indigo-50 rounded-2xl flex items-center justify-center">
+                    <div className="w-24 h-24 bg-indigo-50 rounded-2xl flex items-center justify-center shadow-md shadow-indigo-100/50 ring-2 ring-white motion-safe:transition-all motion-safe:duration-300 group-hover:bg-indigo-100 group-hover:shadow-lg group-hover:scale-105">
                       {icon}
                     </div>
                     <span className="absolute -top-2 -right-2 w-7 h-7 bg-indigo-600 text-white text-xs font-bold rounded-full flex items-center justify-center">
@@ -581,7 +542,7 @@ export default async function Home({
           </div>
           <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
             {/* Teacher card */}
-            <div className="bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-xl transition-shadow group">
+            <div className="home-card-hover bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-xl transition-shadow group border border-gray-100/80">
               <div className="h-48 bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center p-6">
                 <svg viewBox="0 0 200 140" className="w-full max-w-[200px]" fill="none" xmlns="http://www.w3.org/2000/svg">
                   {/* Whiteboard */}
@@ -614,7 +575,7 @@ export default async function Home({
             </div>
 
             {/* Parent card */}
-            <div className="bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-xl transition-shadow group">
+            <div className="home-card-hover bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-xl transition-shadow group border border-gray-100/80">
               <div className="h-48 bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center p-6">
                 <svg viewBox="0 0 200 140" className="w-full max-w-[200px]" fill="none" xmlns="http://www.w3.org/2000/svg">
                   {/* Phone screen */}
@@ -647,7 +608,7 @@ export default async function Home({
             </div>
 
             {/* AI card */}
-            <div className="bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-xl transition-shadow group">
+            <div className="home-card-hover bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-xl transition-shadow group border border-gray-100/80">
               <div className="h-48 bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center p-6">
                 <svg viewBox="0 0 200 140" className="w-full max-w-[200px]" fill="none" xmlns="http://www.w3.org/2000/svg">
                   {/* Brain / circuit illustration */}
@@ -704,7 +665,7 @@ export default async function Home({
                 { quote: "Moins de paperasse : annonces, ressources et suivi au même endroit.", author: "Enseignant", role: "Mathématiques" },
                 { quote: "La plateforme nous aide à garder le lien entre l’école et la maison.", author: "Direction", role: "Établissement partenaire" },
               ].map((x) => (
-                <blockquote key={x.author} className="bg-white rounded-2xl shadow-sm border border-amber-100/50 p-6 flex flex-col">
+                <blockquote key={x.author} className="home-card-hover bg-white rounded-2xl shadow-md shadow-amber-100/30 border border-amber-100/60 p-6 flex flex-col">
                   <p className="text-amber-600 text-3xl leading-none font-serif">&ldquo;</p>
                   <p className="text-gray-700 text-sm leading-relaxed flex-1 -mt-1">{x.quote}</p>
                   <footer className="mt-4 pt-4 border-t border-gray-100">
@@ -777,7 +738,7 @@ export default async function Home({
               </div>
             )}
 
-            <form action={submitContactAdmin} className="rounded-2xl bg-white/95 shadow-xl border border-white/10 p-6 sm:p-8 space-y-4">
+            <form action={submitContactAdmin} className="rounded-2xl bg-white/95 backdrop-blur-sm shadow-2xl shadow-black/20 border border-white/20 ring-1 ring-indigo-400/10 p-6 sm:p-8 space-y-4 motion-safe:transition-shadow motion-safe:duration-300 hover:shadow-indigo-950/40">
               <div>
                 <label htmlFor="ca-name" className="block text-sm font-medium text-gray-700 mb-1">
                   Nom complet <span className="text-red-500">*</span>

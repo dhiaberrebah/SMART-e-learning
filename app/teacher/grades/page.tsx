@@ -124,7 +124,7 @@ export default async function TeacherGrades({ searchParams }: { searchParams: Pr
                 <th className="px-4 py-3 text-center">Type</th>
                 <th className="px-5 py-3 text-left">Date</th>
                 <th className="px-5 py-3 text-left">Observations</th>
-                <th className="px-4 py-3 text-center">Actions</th>
+                <th className="px-4 py-3 text-center">Modifier</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -149,12 +149,20 @@ export default async function TeacherGrades({ searchParams }: { searchParams: Pr
                       <td className="px-5 py-3 text-gray-500">{new Date(g.date).toLocaleDateString('fr-FR')}</td>
                       <td className="px-5 py-3 text-gray-400 text-xs max-w-xs truncate">{g.notes ?? '—'}</td>
                       <td className="px-4 py-3 text-center">
-                        <form action={deleteGrade} className="inline">
-                          <input type="hidden" name="id" value={g.id} />
-                          <button type="submit" className="text-xs text-red-500 hover:text-red-700 hover:underline">
-                            Supprimer
-                          </button>
-                        </form>
+                        <div className="flex flex-col items-center gap-1">
+                          <Link
+                            href={`/teacher/grades/edit/${g.id}`}
+                            className="text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                          >
+                            Modifier
+                          </Link>
+                          <form action={deleteGrade} className="inline">
+                            <input type="hidden" name="id" value={g.id} />
+                            <button type="submit" className="text-xs text-red-500 hover:text-red-700 hover:underline">
+                              Supprimer
+                            </button>
+                          </form>
+                        </div>
                       </td>
                     </tr>
                   )

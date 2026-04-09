@@ -31,11 +31,16 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
+  const path = request.nextUrl.pathname
+
   if (
     !user &&
-    !request.nextUrl.pathname.startsWith('/login') &&
-    !request.nextUrl.pathname.startsWith('/register') &&
-    request.nextUrl.pathname !== '/'
+    !path.startsWith('/login') &&
+    !path.startsWith('/register') &&
+    !path.startsWith('/forgot-password') &&
+    !path.startsWith('/auth/reset-password') &&
+    !path.startsWith('/api/') &&
+    path !== '/'
   ) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'

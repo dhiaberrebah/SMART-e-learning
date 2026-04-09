@@ -22,9 +22,22 @@ async function handleUpdate(formData: FormData) {
     redirect('/admin/users/edit/' + userId + '?error=' + encodeURIComponent('CIN obligatoire pour un parent (min. 5 caractères).'))
   }
 
+  const isTeacher = role === 'teacher'
+  const phone = isTeacher ? ((formData.get('phone') as string) || '').trim() || null : null
+  const address = isTeacher ? ((formData.get('address') as string) || '').trim() || null : null
+  const rdRaw = ((formData.get('recruitment_date') as string) || '').trim()
+  const recruitment_date = isTeacher && rdRaw ? rdRaw : null
+
   const { error } = await supabase
     .from('profiles')
-    .update({ full_name: fullName, role, cin })
+    .update({
+      full_name: fullName,
+      role,
+      cin,
+      phone,
+      address,
+      recruitment_date,
+    })
     .eq('id', userId)
 
   if (error) {
@@ -109,6 +122,43 @@ export default async function EditUserPage({
               <option value="teacher">Enseignant</option>
               <option value="parent">Parent</option>
             </select>
+          </div>
+
+          <div className="rounded-lg border border-gray-100 bg-gray-50/80 p-4 space-y-4">
+            <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Coordonnées enseignant</p>
+            <p className="text-xs text-gray-500 -mt-2">Enregistrées uniquement si le rôle est Enseignant.</p>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Téléphone</label>
+              <input
+                type="tel"
+                name="phone"
+                autoComplete="tel"
+                defaultValue={(editUser as { phone?: string | null }).phone ?? ''}
+                className="w-full px-4 py-2.5 border border-gray-400 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm bg-white"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Adresse</label>
+              <textarea
+                name="address"
+                rows={3}
+                defaultValue={(editUser as { address?: string | null }).address ?? ''}
+                className="w-full px-4 py-2.5 border border-gray-400 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm resize-y min-h-[4.5rem] bg-white"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Date de recrutement</label>
+              <input
+                type="date"
+                name="recruitment_date"
+                defaultValue={
+                  (editUser as { recruitment_date?: string | null }).recruitment_date
+                    ? String((editUser as { recruitment_date: string }).recruitment_date).slice(0, 10)
+                    : ''
+                }
+                className="w-full px-4 py-2.5 border border-gray-400 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm bg-white"
+              />
+            </div>
           </div>
 
           <div>
