@@ -26,6 +26,58 @@ body {
 }
 
 /* —— Landing (home) motion —— */
+
+/* Scroll-reveal: hidden until JS adds .is-visible */
+.reveal {
+  opacity: 0;
+  transform: translateY(1.5rem);
+  transition:
+    opacity 0.75s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.75s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.reveal-left {
+  opacity: 0;
+  transform: translateX(-2rem);
+  transition:
+    opacity 0.8s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.reveal-left.is-visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+.reveal-right {
+  opacity: 0;
+  transform: translateX(2rem);
+  transition:
+    opacity 0.8s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.reveal-right.is-visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+.reveal-scale {
+  opacity: 0;
+  transform: scale(0.88);
+  transition:
+    opacity 0.8s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.reveal-scale.is-visible {
+  opacity: 1;
+  transform: scale(1);
+}
+/* Stagger helpers */
+.reveal-delay-1 { transition-delay: 0.1s; }
+.reveal-delay-2 { transition-delay: 0.2s; }
+.reveal-delay-3 { transition-delay: 0.3s; }
+.reveal-delay-4 { transition-delay: 0.45s; }
+.reveal-delay-5 { transition-delay: 0.6s; }
 @keyframes home-fade-up {
   from {
     opacity: 0;
@@ -83,6 +135,49 @@ body {
     opacity: 0.35;
     transform: scale(0.98) translate(-3%, 3%);
   }
+}
+
+@keyframes home-grid-slide {
+  from { transform: translateY(0); }
+  to   { transform: translateY(40px); }
+}
+
+@keyframes home-orb-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.45; }
+  30%       { transform: translate(3%, -4%) scale(1.07); opacity: 0.6; }
+  65%       { transform: translate(-2%, 5%) scale(0.96); opacity: 0.4; }
+}
+
+@keyframes home-orb-drift2 {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.35; }
+  40%       { transform: translate(-4%, 3%) scale(1.05); opacity: 0.5; }
+  75%       { transform: translate(3%, -3%) scale(0.97); opacity: 0.3; }
+}
+
+@keyframes home-spin-slow {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes home-shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes home-counter {
+  from { opacity: 0; transform: translateY(0.5rem); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes home-line-grow {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+
+@keyframes home-ping-once {
+  0%   { transform: scale(1);   opacity: 0.8; }
+  80%  { transform: scale(2.2); opacity: 0; }
+  100% { transform: scale(2.2); opacity: 0; }
 }
 
 @keyframes home-shine {
@@ -175,6 +270,111 @@ body {
   animation: home-fade-up 0.85s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+.home-orb {
+  animation: home-orb-drift 16s ease-in-out infinite;
+}
+.home-orb-2 {
+  animation: home-orb-drift2 20s ease-in-out infinite;
+}
+.home-spin-slow {
+  animation: home-spin-slow 22s linear infinite;
+}
+.home-grid-slide {
+  animation: home-grid-slide 8s linear infinite;
+}
+.home-ping-once {
+  animation: home-ping-once 1.4s cubic-bezier(0, 0, 0.2, 1) both;
+}
+
+/* Gradient section divider */
+.home-section-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 0.35rem 1rem;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, #ede9fe, #e0e7ff);
+  color: #4338ca;
+  border: 1px solid #c7d2fe;
+}
+
+/* Shimmer button effect */
+.home-shimmer-btn {
+  position: relative;
+  overflow: hidden;
+}
+.home-shimmer-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.25) 50%, transparent 70%);
+  background-size: 200% 100%;
+  animation: home-shimmer 3s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* Gradient underline for section titles */
+.home-title-underline {
+  position: relative;
+  display: inline-block;
+}
+.home-title-underline::after {
+  content: '';
+  position: absolute;
+  bottom: -6px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #6366f1, #8b5cf6, #06b6d4);
+  transform-origin: left;
+  animation: home-line-grow 1s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Glowing badge */
+.home-glow-badge {
+  box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4);
+  animation: home-ping-once 2s 0.5s ease-in-out both;
+}
+
+/* Counter number style */
+.home-counter-num {
+  animation: home-counter 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Feature card gradient border */
+.home-feat-card {
+  position: relative;
+  border-radius: 1rem;
+  background: #fff;
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s ease;
+}
+.home-feat-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6, #06b6d4);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: destination-out;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+.home-feat-card:hover::before {
+  opacity: 1;
+}
+.home-feat-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 24px 48px -16px rgba(99, 102, 241, 0.22);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .home-nav-in,
   .home-fade-up,
@@ -184,11 +384,23 @@ body {
   .home-blob,
   .home-blob-delay,
   .home-accent-text,
-  .home-section-fade {
+  .home-section-fade,
+  .home-orb,
+  .home-orb-2,
+  .home-spin-slow,
+  .home-grid-slide,
+  .home-ping-once,
+  .home-shimmer-btn::after,
+  .home-title-underline::after,
+  .home-glow-badge {
     animation: none !important;
     animation-delay: 0s !important;
     opacity: 1;
     transform: none;
+  }
+  .reveal, .reveal-left, .reveal-right, .reveal-scale {
+    opacity: 1 !important;
+    transform: none !important;
   }
 
   .home-accent-text {
@@ -200,6 +412,17 @@ body {
 
   .home-card-hover:hover {
     transform: none;
+  }
+}
+
+/* Hide scrollbar while keeping scroll functionality */
+@layer utilities {
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
   }
 }
 

@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { redirect } from 'next/navigation'
+import { getTeacherClasses } from '@/lib/teacher-classes'
 
 async function addGrade(formData: FormData) {
   'use server'
@@ -52,7 +53,7 @@ export default async function AddGradePage({ searchParams }: { searchParams: Pro
   const { data: { user } } = await supabase.auth.getUser()
   const db = createServiceClient()
 
-  const { data: classes } = await db.from('classes').select('id, name').eq('teacher_id', user!.id).order('name')
+  const classes = await getTeacherClasses(db, user!.id, 'id, name')
   const classIds = (classes ?? []).map((c: any) => c.id)
 
   const [{ data: students }, { data: subjects }] = await Promise.all([
@@ -72,7 +73,7 @@ export default async function AddGradePage({ searchParams }: { searchParams: Pro
   const today = new Date().toISOString().split('T')[0]
 
   return (
-    <div className="p-6 max-w-2xl mx-auto">
+    <div className="p-6 max-w-2xl mx-auto h-full overflow-y-auto">
       <div className="mb-6">
         <a href="/teacher/grades" className="text-sm text-blue-600 hover:underline">← Notes</a>
         <h1 className="text-2xl font-bold text-gray-900 mt-2">Ajouter une note</h1>

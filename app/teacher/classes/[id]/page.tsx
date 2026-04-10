@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { teacherCanAccessClass } from '@/lib/teacher-classes'
 
 export default async function ClassDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -9,11 +10,13 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
   const { data: { user } } = await supabase.auth.getUser()
   const db = createServiceClient()
 
+  const allowed = await teacherCanAccessClass(db, user!.id, id)
+  if (!allowed) notFound()
+
   const { data: cls } = await db
     .from('classes')
     .select('id, name, description, grade_level, academic_year')
     .eq('id', id)
-    .eq('teacher_id', user!.id)
     .maybeSingle()
 
   if (!cls) notFound()

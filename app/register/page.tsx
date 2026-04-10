@@ -1,11 +1,12 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { normalizeParentCin } from '@/lib/parent-cin'
-import { AuthSchoolHeader } from '@/components/auth/AuthSchoolHeader'
+import DashboardNavbar from '@/components/DashboardNavbar'
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -69,21 +70,22 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-lg">
-        {/* Back to homepage */}
-        <div>
-          <Link href="/" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-indigo-600 transition-colors group">
-            <svg className="w-4 h-4 transition-transform group-hover:-translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-            Retour à l'accueil
-          </Link>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex flex-col">
+      <DashboardNavbar />
+      <div className="flex-1 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-6">
+        {/* Logo above the card */}
+        <div className="flex flex-col items-center gap-2">
+          <div className="relative h-16 w-16 rounded-2xl overflow-hidden ring-2 ring-indigo-100 shadow-md">
+            <Image src="/why-almourabi-1.png" alt="مدرستي" fill className="object-cover" sizes="64px" priority />
+          </div>
+          <span dir="rtl" lang="ar" className="text-xl font-bold text-gray-800">مدرستي</span>
         </div>
-        <div>
-          <AuthSchoolHeader />
-          <h2 className="text-center text-2xl font-bold text-gray-900">Créer un compte parent</h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
+
+        <div className="bg-white p-8 rounded-xl shadow-lg space-y-6">
+        <div className="flex flex-col items-center gap-1">
+          <h2 className="text-2xl font-bold text-gray-900">Créer un compte parent</h2>
+          <p className="text-center text-sm text-gray-600">
             Ou{' '}
             <Link href="/login" className="font-medium text-indigo-600 hover:text-indigo-500">
               se connecter à votre compte
@@ -208,6 +210,8 @@ export default function RegisterPage() {
             {loading ? 'Inscription en cours…' : 'Créer mon compte'}
           </button>
         </form>
+        </div>
+      </div>
       </div>
     </div>
   )

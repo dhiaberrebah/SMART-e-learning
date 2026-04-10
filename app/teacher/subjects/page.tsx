@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import Link from 'next/link'
+import { getTeacherClasses } from '@/lib/teacher-classes'
 
 export default async function TeacherSubjects({ searchParams }: { searchParams: Promise<{ class_id?: string }> }) {
   const sp = await searchParams
@@ -8,7 +9,7 @@ export default async function TeacherSubjects({ searchParams }: { searchParams: 
   const { data: { user } } = await supabase.auth.getUser()
   const db = createServiceClient()
 
-  const { data: classes } = await db.from('classes').select('id, name').eq('teacher_id', user!.id).order('name')
+  const classes = await getTeacherClasses(db, user!.id, 'id, name')
 
   let q = db
     .from('subjects')
@@ -23,7 +24,7 @@ export default async function TeacherSubjects({ searchParams }: { searchParams: 
   const { data: subjects } = await q
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-6 max-w-5xl mx-auto h-full overflow-y-auto">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Mes matières</h1>
         <p className="text-gray-500 text-sm mt-1">

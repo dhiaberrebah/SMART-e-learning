@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import ParentSidebar from '@/components/parent/ParentSidebar'
+import DashboardNavbar from '@/components/DashboardNavbar'
 
 async function signOut() {
   'use server'
@@ -24,10 +25,13 @@ export default async function ParentLayout({ children }: { children: React.React
   if (profile?.role !== 'parent') redirect('/')
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
-      <ParentSidebar profile={profile} signOutAction={signOut} />
-      <div className="flex-1 overflow-auto">
-        {children}
+    <div className="flex flex-col h-screen bg-gray-50 overflow-hidden">
+      <DashboardNavbar signOutAction={signOut} />
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+        <ParentSidebar profile={profile} signOutAction={signOut} />
+        <div className="flex-1 overflow-auto">
+          {children}
+        </div>
       </div>
     </div>
   )

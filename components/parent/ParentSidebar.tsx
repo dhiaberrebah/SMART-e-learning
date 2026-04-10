@@ -104,7 +104,7 @@ export default function ParentSidebar({ profile, signOutAction }: Props) {
 
   return (
     <aside
-      className={`${collapsed ? 'w-16' : 'w-64'} flex-shrink-0 bg-emerald-900 flex flex-col transition-all duration-300 h-screen sticky top-0`}
+      className={`${collapsed ? 'w-16' : 'w-64'} flex-shrink-0 bg-emerald-900 flex flex-col transition-all duration-300 h-full`}
     >
       {/* Header */}
       <div className="h-16 flex items-center justify-between px-3 border-b border-emerald-700/50">
@@ -133,7 +133,7 @@ export default function ParentSidebar({ profile, signOutAction }: Props) {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 py-4 overflow-y-auto">
+      <nav className="flex-1 py-4 overflow-y-auto no-scrollbar" style={{ scrollbarWidth: 'none' }}>
         <ul className="space-y-0.5 px-2">
           {navItems.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
