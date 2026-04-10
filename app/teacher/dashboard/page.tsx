@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import Link from 'next/link'
+import { getTeacherClassIds } from '@/lib/teacher-classes'
 
 export default async function TeacherDashboard() {
   const supabase = await createClient()
@@ -10,20 +11,21 @@ export default async function TeacherDashboard() {
   const today = new Date().toISOString().split('T')[0]
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
 
-  // Load all data in parallel
+  const classIds = await getTeacherClassIds(db, user!.id)
+
   const [
-    { data: classes },
+    classes,
     { data: subjects },
     { data: assessments },
-    { data: recentAttendance },
     { data: recentSubmissions },
     { data: upcomingEvents },
     { data: adminMessages },
   ] = await Promise.all([
-    db.from('classes').select('id, name, grade_level').eq('teacher_id', user!.id).order('name'),
+    classIds.length > 0
+      ? db.from('classes').select('id, name, grade_level').in('id', classIds).order('name').then((r: any) => r.data ?? [])
+      : Promise.resolve([]),
     db.from('subjects').select('id, name, class_id').eq('teacher_id', user!.id).order('name'),
     db.from('assessments').select('id, title, status, created_at').eq('teacher_id', user!.id).order('created_at', { ascending: false }).limit(5),
-    db.from('attendance').select('date, status, class_id, class:classes(name)').eq('classes.teacher_id', user!.id).gte('date', sevenDaysAgo).order('date', { ascending: false }),
     db.from('assessment_submissions').select('id, status, submitted_at, student:students(full_name), assessment:assessments(title, teacher_id)').eq('assessments.teacher_id', user!.id).order('submitted_at', { ascending: false }).limit(5),
     db.from('events').select('id, title, start_at, location').gte('start_at', new Date().toISOString()).order('start_at', { ascending: true }).limit(3),
     supabase
@@ -32,8 +34,6 @@ export default async function TeacherDashboard() {
       .order('created_at', { ascending: false })
       .limit(3),
   ])
-
-  const classIds = (classes ?? []).map((c: any) => c.id)
 
   // Students in teacher's classes
   const { data: students } = classIds.length > 0
@@ -64,7 +64,7 @@ export default async function TeacherDashboard() {
   ]
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6 max-w-7xl mx-auto h-full overflow-y-auto">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">
           {greeting} 👋

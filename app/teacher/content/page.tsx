@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { getTeacherClasses } from '@/lib/teacher-classes'
 
 async function deleteContent(formData: FormData) {
   'use server'
@@ -17,7 +18,7 @@ export default async function TeacherContent({ searchParams }: { searchParams: P
   const { data: { user } } = await supabase.auth.getUser()
   const db = createServiceClient()
 
-  const { data: classes } = await db.from('classes').select('id, name').eq('teacher_id', user!.id).order('name')
+  const classes = await getTeacherClasses(db, user!.id, 'id, name')
   const classIds = (classes ?? []).map((c: any) => c.id)
 
   let query = db.from('pedagogical_contents')
@@ -48,7 +49,7 @@ export default async function TeacherContent({ searchParams }: { searchParams: P
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-6 max-w-5xl mx-auto h-full overflow-y-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Cours & Ressources</h1>

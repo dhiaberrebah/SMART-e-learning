@@ -63,7 +63,7 @@ export default async function TeacherAssessments() {
   ;(assessments ?? []).forEach((a: any) => { if (a.status in counts) counts[a.status as keyof typeof counts]++ })
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-6 max-w-5xl mx-auto h-full overflow-y-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Évaluations</h1>

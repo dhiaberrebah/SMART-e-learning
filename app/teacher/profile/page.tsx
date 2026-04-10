@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { redirect } from 'next/navigation'
+import { getTeacherClasses } from '@/lib/teacher-classes'
 
 async function updateProfile(formData: FormData) {
   'use server'
@@ -46,13 +47,13 @@ export default async function TeacherProfile({ searchParams }: { searchParams: P
   if (!user) redirect('/login')
   const db = createServiceClient()
 
-  const [{ data: profile }, { data: classes }, { data: subjects }] = await Promise.all([
+  const [{ data: profile }, classes, { data: subjects }] = await Promise.all([
     db
       .from('profiles')
       .select('full_name, phone, address, recruitment_date')
       .eq('id', user.id)
       .maybeSingle(),
-    db.from('classes').select('id, name, grade_level, academic_year').eq('teacher_id', user.id).order('name'),
+    getTeacherClasses(db, user.id, 'id, name, grade_level, academic_year'),
     db.from('subjects').select('id, name, class_id').eq('teacher_id', user.id).order('name'),
   ])
 
@@ -67,7 +68,7 @@ export default async function TeacherProfile({ searchParams }: { searchParams: P
     : Promise.resolve({ data: [] })
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-6 max-w-4xl mx-auto h-full overflow-y-auto">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Mon profil</h1>
         <p className="text-gray-500 text-sm mt-1">Gérez vos informations personnelles</p>

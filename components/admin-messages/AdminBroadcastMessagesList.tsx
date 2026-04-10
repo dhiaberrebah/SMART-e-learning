@@ -78,7 +78,7 @@ export function AdminBroadcastMessagesList({
   const focusRing = accent === 'emerald' ? 'focus:ring-emerald-500' : 'focus:ring-blue-500'
 
   return (
-    <div className="p-6 max-w-3xl mx-auto">
+    <div className="p-6 max-w-3xl mx-auto h-full overflow-y-auto">
       <div className="mb-6">
         <Link href={dashboardHref} className={`text-sm mb-2 inline-block ${dashboardLinkClassName}`}>
           ← Tableau de bord

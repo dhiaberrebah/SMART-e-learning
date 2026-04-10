@@ -3,17 +3,13 @@ import FontAwesome from '@expo/vector-icons/FontAwesome'
 import { Redirect, Tabs } from 'expo-router'
 
 import { useAuth } from '@/contexts/AuthContext'
-import Colors from '@/constants/Colors'
-import { useColorScheme } from '@/components/useColorScheme'
 
 function TabIcon({ name, color }: { name: ComponentProps<typeof FontAwesome>['name']; color: string }) {
-  return <FontAwesome size={22} name={name} color={color} style={{ marginBottom: -2 }} />
+  return <FontAwesome size={20} name={name} color={color} style={{ marginBottom: -2 }} />
 }
 
 export default function ParentTabLayout() {
-  const colorScheme = useColorScheme()
   const { session, profile, loading } = useAuth()
-  const tint = Colors[colorScheme ?? 'light'].tint
 
   if (!loading && (!session || profile?.role !== 'parent')) {
     return <Redirect href="/(auth)/login" />
@@ -22,17 +18,18 @@ export default function ParentTabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: tint,
+        tabBarActiveTintColor: '#4f46e5',
+        tabBarInactiveTintColor: '#94a3b8',
+        tabBarStyle: { borderTopColor: '#e2e8f0', backgroundColor: '#fff' },
         headerStyle: { backgroundColor: '#4f46e5' },
         headerTintColor: '#fff',
-        headerTitleStyle: { fontWeight: '600' },
+        headerTitleStyle: { fontWeight: '700', fontSize: 17 },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
           title: 'Accueil',
-          tabBarLabel: 'Accueil',
           tabBarIcon: ({ color }) => <TabIcon name="home" color={color} />,
         }}
       />
@@ -45,21 +42,29 @@ export default function ParentTabLayout() {
         }}
       />
       <Tabs.Screen
-        name="messages"
+        name="grades"
         options={{
-          title: 'Messages',
-          tabBarLabel: 'Messages',
-          tabBarIcon: ({ color }) => <TabIcon name="envelope" color={color} />,
+          title: 'Notes',
+          tabBarIcon: ({ color }) => <TabIcon name="star" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="attendance"
+        options={{
+          title: 'Présences',
+          tabBarLabel: 'Présences',
+          tabBarIcon: ({ color }) => <TabIcon name="calendar" color={color} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: 'Profil',
-          tabBarLabel: 'Profil',
           tabBarIcon: ({ color }) => <TabIcon name="user" color={color} />,
         }}
       />
+      {/* Hidden from tab bar */}
+      <Tabs.Screen name="messages" options={{ href: null }} />
     </Tabs>
   )
 }

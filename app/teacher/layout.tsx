@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { redirect } from 'next/navigation'
 import TeacherSidebar from '@/components/teacher/TeacherSidebar'
+import DashboardNavbar from '@/components/DashboardNavbar'
 
 async function signOut() {
   'use server'
@@ -20,9 +21,12 @@ export default async function TeacherLayout({ children }: { children: React.Reac
   if (profile?.role !== 'teacher') redirect('/')
 
   return (
-    <div className="flex h-screen max-h-screen bg-gray-50 overflow-hidden">
-      <TeacherSidebar profile={profile} signOutAction={signOut} />
-      <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden">{children}</div>
+    <div className="flex flex-col h-screen max-h-screen bg-gray-50 overflow-hidden">
+      <DashboardNavbar signOutAction={signOut} />
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+        <TeacherSidebar profile={profile} signOutAction={signOut} />
+        <div className="flex-1 min-h-0 min-w-0 overflow-hidden">{children}</div>
+      </div>
     </div>
   )
 }

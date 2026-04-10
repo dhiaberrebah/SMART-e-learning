@@ -55,7 +55,7 @@ export default function TeacherSidebar({ profile, signOutAction }: Props) {
   const [collapsed, setCollapsed] = useState(false)
 
   return (
-    <aside className={`${collapsed ? 'w-16' : 'w-64'} flex-shrink-0 bg-blue-900 flex flex-col transition-all duration-300 h-screen sticky top-0`}>
+    <aside className={`${collapsed ? 'w-16' : 'w-64'} flex-shrink-0 bg-blue-900 flex flex-col transition-all duration-300 h-full`}>
       <div className="h-16 flex items-center justify-between px-3 border-b border-blue-700/50">
         {!collapsed && (
           <div className="flex items-center gap-2 min-w-0">
@@ -76,7 +76,7 @@ export default function TeacherSidebar({ profile, signOutAction }: Props) {
         </button>
       </div>
 
-      <nav className="flex-1 py-4 overflow-y-auto">
+      <nav className="flex-1 py-4 overflow-y-auto no-scrollbar" style={{ scrollbarWidth: 'none' }}>
         <ul className="space-y-0.5 px-2">
           {navItems.map((item) => {
             const active = pathname === item.href || pathname.startsWith(item.href + '/')

@@ -77,6 +77,16 @@ const navItems = [
     ),
   },
   {
+    href: '/admin/timetable',
+    label: 'Emploi du temps',
+    icon: (
+      <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 14h.01M12 14h.01M15 14h.01M9 17h.01M12 17h.01M15 17h.01" />
+      </svg>
+    ),
+  },
+  {
     href: '/admin/reports',
     label: 'Rapports',
     icon: (
@@ -139,7 +149,7 @@ export default function AdminSidebar({ profile, signOutAction }: Props) {
 
   return (
     <aside
-      className={`${collapsed ? 'w-16' : 'w-64'} flex-shrink-0 bg-gray-900 flex flex-col transition-all duration-300 h-screen sticky top-0`}
+      className={`${collapsed ? 'w-16' : 'w-64'} flex-shrink-0 bg-gray-900 flex flex-col transition-all duration-300 h-full`}
     >
       {/* Header */}
       <div className="h-16 flex items-center justify-between px-3 border-b border-gray-700/50">
@@ -169,7 +179,7 @@ export default function AdminSidebar({ profile, signOutAction }: Props) {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 py-4 overflow-y-auto">
+      <nav className="flex-1 py-4 overflow-y-auto no-scrollbar" style={{ scrollbarWidth: 'none' }}>
         <ul className="space-y-0.5 px-2">
           {navItems.map((item) => {
             const isActive =

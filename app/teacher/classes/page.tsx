@@ -1,17 +1,14 @@
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import Link from 'next/link'
+import { getTeacherClasses } from '@/lib/teacher-classes'
 
 export default async function TeacherClasses() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   const db = createServiceClient()
 
-  const { data: classes } = await db
-    .from('classes')
-    .select('id, name, description, grade_level, academic_year')
-    .eq('teacher_id', user!.id)
-    .order('name')
+  const classes = await getTeacherClasses(db, user!.id)
 
   const classIds = (classes ?? []).map((c: any) => c.id)
   const [{ data: students }, { data: subjects }] = await Promise.all([
@@ -31,7 +28,7 @@ export default async function TeacherClasses() {
   const subjectCount = (id: string) => (subjects ?? []).filter((s: any) => s.class_id === id).length
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-6 max-w-6xl mx-auto h-full overflow-y-auto">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Mes classes</h1>
         <p className="text-gray-500 text-sm mt-1">{(classes ?? []).length} classe{(classes ?? []).length !== 1 ? 's' : ''} assignée{(classes ?? []).length !== 1 ? 's' : ''}</p>

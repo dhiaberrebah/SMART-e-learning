@@ -25,8 +25,17 @@ export default function AddContentPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      const { data: cls } = await supabase.from('classes').select('id, name').eq('teacher_id', user.id).order('name')
-      setClasses(cls ?? [])
+      const [{ data: directCls }, { data: subjectRows }] = await Promise.all([
+        supabase.from('classes').select('id, name').eq('teacher_id', user.id),
+        supabase.from('subjects').select('class_id').eq('teacher_id', user.id),
+      ])
+      const directIds = new Set((directCls ?? []).map((c: any) => c.id))
+      const extraIds = [...new Set((subjectRows ?? []).map((s: any) => s.class_id).filter(Boolean))].filter((id: string) => !directIds.has(id))
+      const extra = extraIds.length > 0
+        ? (await supabase.from('classes').select('id, name').in('id', extraIds)).data ?? []
+        : []
+      const all = [...(directCls ?? []), ...extra].sort((a: any, b: any) => a.name.localeCompare(b.name))
+      setClasses(all)
 
       // Pre-select the class that owns the subject from URL
     }

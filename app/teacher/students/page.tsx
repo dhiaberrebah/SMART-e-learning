@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import Link from 'next/link'
+import { getTeacherClasses } from '@/lib/teacher-classes'
 
 export default async function TeacherStudents({ searchParams }: { searchParams: Promise<{ class_id?: string; q?: string }> }) {
   const sp = await searchParams
@@ -8,11 +9,7 @@ export default async function TeacherStudents({ searchParams }: { searchParams: 
   const { data: { user } } = await supabase.auth.getUser()
   const db = createServiceClient()
 
-  const { data: classes } = await db
-    .from('classes')
-    .select('id, name')
-    .eq('teacher_id', user!.id)
-    .order('name')
+  const classes = await getTeacherClasses(db, user!.id, 'id, name')
 
   const classIds = (classes ?? []).map((c: any) => c.id)
   const targetClassIds = sp.class_id ? [sp.class_id] : classIds
@@ -41,7 +38,7 @@ export default async function TeacherStudents({ searchParams }: { searchParams: 
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-6 max-w-6xl mx-auto h-full overflow-y-auto">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Mes élèves</h1>
         <p className="text-gray-500 text-sm mt-1">{(filtered as any[]).length} élève{(filtered as any[]).length !== 1 ? 's' : ''}</p>

@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
+import { getTeacherClasses } from '@/lib/teacher-classes'
 
 async function updateGrade(formData: FormData) {
   'use server'
@@ -91,7 +92,7 @@ export default async function EditGradePage({
 
   if (!sub || sub.teacher_id !== user.id) notFound()
 
-  const { data: classes } = await db.from('classes').select('id, name').eq('teacher_id', user.id).order('name')
+  const classes = await getTeacherClasses(db, user.id, 'id, name')
   const classIds = (classes ?? []).map((c: any) => c.id)
 
   const [{ data: students }, { data: subjects }] = await Promise.all([

@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { SchoolEventsList, type SchoolEventRow } from '@/components/events/SchoolEventsList'
+import { getTeacherClassIds } from '@/lib/teacher-classes'
 
 export default async function TeacherEventsPage({
   searchParams,
@@ -26,9 +27,7 @@ export default async function TeacherEventsPage({
       ? new Date(user.created_at)
       : new Date(0)
 
-  const { data: myClasses } = await db.from('classes').select('id').eq('teacher_id', user!.id)
-
-  const classIds = (myClasses?.map((c) => c.id) as string[]) || []
+  const classIds = await getTeacherClassIds(db, user!.id)
 
   const { data: allEvents } = await db
     .from('events')
