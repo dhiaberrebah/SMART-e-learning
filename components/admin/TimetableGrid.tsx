@@ -73,7 +73,7 @@ export function TimetableGrid({
   return (
     <div className="relative">
       {/* Grid */}
-      <div className="bg-white rounded-xl shadow-sm overflow-auto">
+      <div id="timetable-grid" className="bg-white rounded-xl shadow-sm overflow-auto">
         <table className="w-full text-sm border-collapse min-w-[700px]">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200">
@@ -123,7 +123,7 @@ export function TimetableGrid({
                           {cell.room && (
                             <p className="text-xs opacity-60 mt-0.5">Salle {cell.room}</p>
                           )}
-                          {mode === 'class' && (
+                          {mode === 'class' && deleteSlot && (
                             <button
                               onClick={() => handleDelete(cell)}
                               disabled={isPending}
@@ -136,7 +136,7 @@ export function TimetableGrid({
                             </button>
                           )}
                         </div>
-                      ) : mode === 'class' ? (
+                      ) : mode === 'class' && addSlot ? (
                         <button
                           onClick={() => openModal(day.index, slot.index)}
                           className="w-full h-12 flex items-center justify-center rounded-lg border-2 border-dashed border-gray-200 text-gray-300 hover:border-indigo-300 hover:text-indigo-400 hover:bg-indigo-50/50 transition-all"
