@@ -1,11 +1,27 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { handleAddClass } from './actions'
 
-type Teacher = { id: string; full_name: string | null }
+type Teacher = {
+  id: string
+  full_name: string | null
+  specialties: string[]
+}
+
 type Assignment = { teacher_id: string; subject_name: string }
+
+const SUBJECT_POOL = [
+  'Mathématiques', 'Français', 'Arabe', 'Sciences', 'Anglais',
+  'Histoire-Géographie', 'Éducation Islamique', 'Éducation Physique',
+  'Informatique', 'Arts Plastiques', 'Musique',
+]
+
+function pickOne(specialties: string[]): string {
+  const pool = specialties.length > 0 ? specialties : SUBJECT_POOL
+  return pool[Math.floor(Math.random() * pool.length)]
+}
 
 export function AddClassForm({
   teachers,
@@ -16,25 +32,43 @@ export function AddClassForm({
   gradeOptions: readonly string[]
   error?: string
 }) {
-  const [assignments, setAssignments] = useState<Assignment[]>([
-    { teacher_id: '', subject_name: '' },
-  ])
+  const [open, setOpen] = useState(false)
+  const [checked, setChecked] = useState<Set<string>>(new Set())
+  const dropdownRef = useRef<HTMLDivElement>(null)
 
-  function addRow() {
-    setAssignments((prev) => [...prev, { teacher_id: '', subject_name: '' }])
-  }
+  // Each teacher gets one fixed random subject for the entire session
+  const subjectMap = useMemo<Record<string, string>>(() => {
+    const map: Record<string, string> = {}
+    for (const t of teachers) {
+      map[t.id] = pickOne(t.specialties)
+    }
+    return map
+  }, [teachers])
 
-  function removeRow(i: number) {
-    setAssignments((prev) => prev.filter((_, idx) => idx !== i))
-  }
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
 
-  function updateRow(i: number, field: keyof Assignment, value: string) {
-    setAssignments((prev) => {
-      const next = [...prev]
-      next[i] = { ...next[i], [field]: value }
+  function toggle(id: string) {
+    setChecked((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
       return next
     })
   }
+
+  const assignments: Assignment[] = [...checked].map((id) => ({
+    teacher_id: id,
+    subject_name: subjectMap[id] ?? '',
+  }))
+
+  const selectedCount = checked.size
 
   return (
     <div className="p-6 max-w-2xl mx-auto">
@@ -57,27 +91,20 @@ export function AddClassForm({
       )}
 
       <form action={handleAddClass} className="space-y-5">
+        {/* Basic info */}
         <div className="bg-white rounded-xl shadow-sm p-6 space-y-5">
           <div className="rounded-lg border border-indigo-100 bg-indigo-50/60 px-4 py-3 text-sm text-indigo-900">
             <p className="font-medium">Nom attribué automatiquement</p>
             <p className="mt-1 text-indigo-800/90">
               Format : <strong>niveau</strong> + lettre de section{' '}
               <strong>a</strong>, <strong>b</strong>, <strong>c</strong>… (ex.{' '}
-              <span className="font-mono text-xs bg-white/80 px-1.5 py-0.5 rounded">
-                1re année a
-              </span>
-              , puis{' '}
-              <span className="font-mono text-xs bg-white/80 px-1.5 py-0.5 rounded">
-                1re année b
-              </span>
-              ).
+              <span className="font-mono text-xs bg-white/80 px-1.5 py-0.5 rounded">1re année a</span>, puis{' '}
+              <span className="font-mono text-xs bg-white/80 px-1.5 py-0.5 rounded">1re année b</span>).
             </p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Description
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Description</label>
             <textarea
               name="description"
               rows={3}
@@ -98,16 +125,12 @@ export function AddClassForm({
               >
                 <option value="">Choisir un niveau</option>
                 {gradeOptions.map((g) => (
-                  <option key={g} value={g}>
-                    {g}
-                  </option>
+                  <option key={g} value={g}>{g}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Année scolaire
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Année scolaire</label>
               <input
                 type="text"
                 name="academic_year"
@@ -118,97 +141,112 @@ export function AddClassForm({
           </div>
         </div>
 
-        {/* Teacher + Subject Assignments */}
+        {/* Teacher dropdown */}
         <div className="bg-white rounded-xl shadow-sm p-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-base font-semibold text-gray-800">
-                Enseignants &amp; matières
-              </h2>
-              <p className="text-xs text-gray-500 mt-0.5">
-                Chaque enseignant est assigné à une matière dans cette classe.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={addRow}
-              className="flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-800"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Ajouter
-            </button>
+          <div>
+            <h2 className="text-base font-semibold text-gray-800">Enseignants &amp; matières</h2>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Chaque enseignant a une matière assignée automatiquement.
+            </p>
           </div>
 
-          {teachers.length === 0 && (
+          {teachers.length === 0 ? (
             <p className="text-xs text-amber-600">
               Aucun enseignant disponible.{' '}
-              <Link href="/admin/users/add" className="underline">
-                Ajouter un enseignant
-              </Link>
+              <Link href="/admin/users/add" className="underline">Ajouter un enseignant</Link>
             </p>
+          ) : (
+            <div ref={dropdownRef} className="relative">
+              {/* Trigger */}
+              <button
+                type="button"
+                onClick={() => setOpen((o) => !o)}
+                className="w-full flex items-center justify-between px-4 py-2.5 border border-gray-300 rounded-lg text-sm bg-white hover:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors"
+              >
+                <span className={selectedCount === 0 ? 'text-gray-400' : 'text-gray-800'}>
+                  {selectedCount === 0
+                    ? 'Sélectionner des enseignants…'
+                    : `${selectedCount} enseignant${selectedCount > 1 ? 's' : ''} sélectionné${selectedCount > 1 ? 's' : ''}`}
+                </span>
+                <svg
+                  className={`w-4 h-4 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`}
+                  fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {/* Dropdown panel */}
+              {open && (
+                <div className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-64 overflow-y-auto">
+                  {teachers.map((t) => {
+                    const isChecked = checked.has(t.id)
+                    const subject = subjectMap[t.id]
+                    return (
+                      <label
+                        key={t.id}
+                        className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${
+                          isChecked ? 'bg-indigo-50' : 'hover:bg-gray-50'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => toggle(t.id)}
+                          className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 shrink-0"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <span className="text-sm font-medium text-gray-800 block truncate">
+                            {t.full_name ?? '—'}
+                          </span>
+                          <span className="inline-flex items-center mt-0.5 px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">
+                            {subject}
+                          </span>
+                        </div>
+                        {isChecked && (
+                          <svg className="w-4 h-4 text-indigo-500 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                      </label>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           )}
 
-          <div className="space-y-3">
-            {assignments.map((row, i) => (
-              <div key={i} className="flex gap-3 items-start">
-                <div className="flex-1">
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Enseignant
-                  </label>
-                  <select
-                    value={row.teacher_id}
-                    onChange={(e) => updateRow(i, 'teacher_id', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+          {/* Selected summary chips */}
+          {selectedCount > 0 && (
+            <div className="flex flex-wrap gap-2 pt-1">
+              {[...checked].map((id) => {
+                const t = teachers.find((x) => x.id === id)
+                if (!t) return null
+                return (
+                  <div
+                    key={id}
+                    className="flex items-center gap-2 pl-3 pr-2 py-1.5 rounded-full border border-indigo-200 bg-indigo-50 text-xs"
                   >
-                    <option value="">Sélectionner…</option>
-                    {teachers.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.full_name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex-1">
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Matière
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Ex. Mathématiques"
-                    value={row.subject_name}
-                    onChange={(e) => updateRow(i, 'subject_name', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  />
-                </div>
-                <div className="pt-6">
-                  <button
-                    type="button"
-                    onClick={() => removeRow(i)}
-                    disabled={assignments.length === 1}
-                    className="p-1.5 text-gray-400 hover:text-red-500 disabled:opacity-30 disabled:cursor-not-allowed"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <p className="text-xs text-gray-400">
-            Les lignes incomplètes (sans enseignant ou sans matière) seront ignorées.
-          </p>
+                    <span className="font-medium text-gray-800">{t.full_name}</span>
+                    <span className="text-indigo-600">·</span>
+                    <span className="text-indigo-700 font-medium">{subjectMap[id]}</span>
+                    <button
+                      type="button"
+                      onClick={() => toggle(id)}
+                      className="ml-1 text-gray-400 hover:text-red-500"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
 
-        {/* hidden field carrying the assignments JSON */}
-        <input
-          type="hidden"
-          name="assignments"
-          value={JSON.stringify(assignments)}
-        />
+        <input type="hidden" name="assignments" value={JSON.stringify(assignments)} />
 
         <div className="flex gap-3">
           <button
