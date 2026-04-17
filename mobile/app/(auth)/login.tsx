@@ -37,13 +37,17 @@ export default function LoginScreen() {
         .maybeSingle()
 
       if (pErr) throw pErr
-      if (prof?.role !== 'parent') {
+      if (!prof?.role || !['parent', 'admin'].includes(prof.role)) {
         await supabase.auth.signOut()
-        throw new Error('Ce compte n’est pas un compte parent.')
+        throw new Error('Accès non autorisé pour ce type de compte.')
       }
 
       await refreshProfile()
-      router.replace('/(parent)')
+      if (prof.role === 'admin') {
+        router.replace('/(admin)')
+      } else {
+        router.replace('/(parent)')
+      }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Erreur de connexion'
       setError(msg)
@@ -59,9 +63,9 @@ export default function LoginScreen() {
     >
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={styles.card}>
-          <Text style={styles.badge}>Espace parent</Text>
+          <Text style={styles.badge}>SMART e-Learning</Text>
           <Text style={styles.title}>Connexion</Text>
-          <Text style={styles.sub}>SMART e-Learning — suivez la scolarité de vos enfants</Text>
+          <Text style={styles.sub}>Accès parent ou administrateur</Text>
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
 

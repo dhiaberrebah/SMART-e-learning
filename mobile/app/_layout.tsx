@@ -46,6 +46,7 @@ function RootLayoutNav() {
           <Stack.Screen name="index" />
           <Stack.Screen name="(auth)" />
           <Stack.Screen name="(parent)" />
+          <Stack.Screen name="(admin)" />
         </Stack>
       </ThemeProvider>
     </AuthProvider>

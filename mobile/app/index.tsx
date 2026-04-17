@@ -18,6 +18,10 @@ export default function Index() {
     return <Redirect href="/(auth)/login" />
   }
 
+  if (profile?.role === 'admin') {
+    return <Redirect href="/(admin)" />
+  }
+
   if (profile?.role !== 'parent') {
     return <Redirect href="/(auth)/login" />
   }
