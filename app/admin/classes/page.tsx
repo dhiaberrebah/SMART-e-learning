@@ -2,10 +2,38 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { PRIMARY_GRADE_OPTIONS_TUNISIA } from '@/lib/grade-levels'
 
+function classHasAssignedTeacher(c: any): boolean {
+  if (c.teacher_id != null) return true
+  return (c.subjects ?? []).some((s: any) => s.teacher_id != null)
+}
+
+function classMatchesTeacherFilter(c: any, teacherId: string): boolean {
+  if (c.teacher_id === teacherId) return true
+  return (c.subjects ?? []).some((s: any) => s.teacher_id === teacherId)
+}
+
+function classTeacherDisplayNames(c: any): string[] {
+  const seen = new Set<string>()
+  const names: string[] = []
+  if (c.teacher_id && c.teacher?.full_name) {
+    seen.add(c.teacher_id)
+    names.push(c.teacher.full_name)
+  }
+  for (const s of c.subjects ?? []) {
+    const id = s.teacher_id
+    const n = s.teacher?.full_name
+    if (id && n && !seen.has(id)) {
+      seen.add(id)
+      names.push(n)
+    }
+  }
+  return names
+}
+
 function applyClassFilters(rows: any[], teacher: string, niveau: string) {
   let list = rows
-  if (teacher === 'none') list = list.filter((c) => c.teacher_id == null)
-  else if (teacher) list = list.filter((c) => c.teacher_id === teacher)
+  if (teacher === 'none') list = list.filter((c) => !classHasAssignedTeacher(c))
+  else if (teacher) list = list.filter((c) => classMatchesTeacherFilter(c, teacher))
   if (niveau === '__none__') {
     list = list.filter((c) => !(c.grade_level && String(c.grade_level).trim()))
   } else if (niveau) {
@@ -41,7 +69,11 @@ export default async function ClassesPage({
         `
       *,
       teacher:profiles!classes_teacher_id_fkey(full_name),
-      students(count)
+      students(count),
+      subjects(
+        teacher_id,
+        teacher:profiles!subjects_teacher_id_fkey(full_name)
+      )
     `
       )
       .order('name', { ascending: true }),
@@ -67,7 +99,7 @@ export default async function ClassesPage({
   const totalStudents =
     classes.reduce((sum, c) => sum + ((c.students as any)?.[0]?.count || 0), 0) || 0
 
-  const assignedInView = classes.filter((c) => c.teacher_id).length
+  const assignedInView = classes.filter((c) => classHasAssignedTeacher(c)).length
   const hasActiveFilters = Boolean(teacherFilter || niveauFilter)
 
   const successMessages: Record<string, string> = {
@@ -190,13 +222,15 @@ export default async function ClassesPage({
                   <th className="px-4 py-3">Classe</th>
                   <th className="px-4 py-3 whitespace-nowrap">Niveau</th>
                   <th className="px-4 py-3 whitespace-nowrap">Année scol.</th>
-                  <th className="px-4 py-3 min-w-[140px]">Enseignant</th>
+                  <th className="px-4 py-3 min-w-[200px] max-w-[280px]">Enseignants</th>
                   <th className="px-4 py-3 text-center whitespace-nowrap">Élèves</th>
                   <th className="px-4 py-3 text-right whitespace-nowrap">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {classes.map((cls: any) => (
+                {classes.map((cls: any) => {
+                  const teacherNames = classTeacherDisplayNames(cls)
+                  return (
                   <tr key={cls.id} className="hover:bg-gray-50/80 transition-colors">
                     <td className="px-4 py-3 align-top">
                       <p className="font-semibold text-gray-900">{cls.name}</p>
@@ -216,9 +250,28 @@ export default async function ClassesPage({
                     <td className="px-4 py-3 align-top text-gray-600 whitespace-nowrap">
                       {cls.academic_year || <span className="text-gray-400">—</span>}
                     </td>
-                    <td className="px-4 py-3 align-top text-gray-700">
-                      {cls.teacher?.full_name || (
-                        <span className="text-amber-700/90 text-xs">Non assigné</span>
+                    <td className="px-4 py-3 align-top text-gray-700 max-w-[280px]">
+                      {teacherNames.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5">
+                          {teacherNames.map((name, idx) => (
+                            <span
+                              key={`${cls.id}-${idx}-${name}`}
+                              className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-slate-200/90 bg-slate-50/90 py-0.5 pl-0.5 pr-2 text-xs font-medium text-slate-800 shadow-sm"
+                            >
+                              <span
+                                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white text-[10px] font-bold uppercase tracking-tight text-emerald-700 ring-1 ring-slate-200/80"
+                                aria-hidden
+                              >
+                                {name.trim().charAt(0) || '?'}
+                              </span>
+                              <span className="truncate">{name.trim()}</span>
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="inline-flex items-center rounded-md border border-amber-200/80 bg-amber-50/90 px-2 py-1 text-[11px] font-medium text-amber-800">
+                          Non assigné
+                        </span>
                       )}
                     </td>
                     <td className="px-4 py-3 align-top text-center font-medium text-gray-900 tabular-nums">
@@ -239,7 +292,8 @@ export default async function ClassesPage({
                       </Link>
                     </td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>
