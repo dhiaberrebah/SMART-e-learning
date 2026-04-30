@@ -7,7 +7,7 @@ import {
 export default async function TeacherAdminMessagesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ reply_error?: string; reply_sent?: string }>
+  searchParams: Promise<{ reply_error?: string; reply_sent?: string; contact?: string }>
 }) {
   const sp = await searchParams
   const supabase = await createClient()
@@ -49,6 +49,8 @@ export default async function TeacherAdminMessagesPage({
       accent="blue"
       replyError={sp.reply_error}
       replySent={sp.reply_sent === '1'}
+      teacherContactSent={sp.contact === 'success'}
+      newMessageHref="/teacher/admin-messages/new"
     />
   )
 }

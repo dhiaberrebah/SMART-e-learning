@@ -4,7 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import {
   buildAutoClassName,
-  classNameExistsGlobally,
+  classNameTakenForSameYear,
+  normalizeAcademicYearKey,
   nextClassSectionLetter,
 } from '@/lib/class-name'
 
@@ -47,10 +48,9 @@ export async function handleAddClass(formData: FormData) {
     redirect('/admin/classes/add?error=' + encodeURIComponent(fetchErr.message))
   }
 
-  const siblings = (sameLevelRows ?? []).filter(
-    (r) => (r.academic_year || '') === (academic_year || '')
-  )
-  const siblingNames = siblings.map((r) => r.name)
+  // Même niveau : la section suit l’alphabet en tenant compte de *toutes* les classes du niveau
+  // (a, puis b, puis c…), quelle que soit l’année scolaire.
+  const siblingNames = (sameLevelRows ?? []).map((r) => r.name)
 
   const letter = nextClassSectionLetter(grade_level, siblingNames)
   if (!letter) {
@@ -64,15 +64,14 @@ export async function handleAddClass(formData: FormData) {
 
   const name = buildAutoClassName(grade_level, letter)
 
-  const { data: allRows } = await supabase.from('classes').select('name')
-  const taken = new Set(
-    (allRows ?? []).map((r) => r.name.trim().toLowerCase())
-  )
-  if (classNameExistsGlobally(name, taken)) {
+  const yearKey = normalizeAcademicYearKey(academic_year)
+  const { data: nameRows } = await supabase.from('classes').select('name, academic_year')
+  if (classNameTakenForSameYear(name, academic_year, nameRows ?? [])) {
+    const yearHint = yearKey || 'année non renseignée'
     redirect(
       '/admin/classes/add?error=' +
         encodeURIComponent(
-          'Ce nom de classe existe déjà. Réessayez ou contactez le support.'
+          `Une classe nommée « ${name} » existe déjà pour l’année « ${yearHint} ». Indiquez une autre année scolaire, ou renommez / supprimez l’entrée existante.`
         )
     )
   }

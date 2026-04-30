@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { PRIMARY_GRADE_OPTIONS_TUNISIA } from '@/lib/grade-levels'
+import { classNameTakenForSameYear } from '@/lib/class-name'
 
 async function handleUpdate(formData: FormData) {
   'use server'
@@ -13,13 +14,15 @@ async function handleUpdate(formData: FormData) {
     redirect(`/admin/classes/edit/${classId}?error=` + encodeURIComponent('Le nom de la classe est obligatoire.'))
   }
 
-  const { data: others } = await supabase.from('classes').select('id, name').neq('id', classId)
-  const nameLower = name.toLowerCase()
-  const dup = (others ?? []).some((o) => o.name.trim().toLowerCase() === nameLower)
-  if (dup) {
+  const academicYearUpdate = ((formData.get('academic_year') as string) || '').trim() || null
+
+  const { data: others } = await supabase.from('classes').select('id, name, academic_year').neq('id', classId)
+  if (classNameTakenForSameYear(name, academicYearUpdate, others ?? [])) {
     redirect(
       `/admin/classes/edit/${classId}?error=` +
-        encodeURIComponent('Ce nom est déjà utilisé par une autre classe (doublon interdit).')
+        encodeURIComponent(
+          'Ce nom est déjà utilisé pour cette année scolaire par une autre classe.'
+        )
     )
   }
 
@@ -29,7 +32,7 @@ async function handleUpdate(formData: FormData) {
       name,
       description: (formData.get('description') as string) || null,
       grade_level: (formData.get('grade_level') as string) || null,
-      academic_year: (formData.get('academic_year') as string) || null,
+      academic_year: academicYearUpdate,
       teacher_id: (formData.get('teacher_id') as string) || null,
     })
     .eq('id', classId)

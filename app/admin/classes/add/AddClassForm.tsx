@@ -96,9 +96,9 @@ export function AddClassForm({
           <div className="rounded-lg border border-indigo-100 bg-indigo-50/60 px-4 py-3 text-sm text-indigo-900">
             <p className="font-medium">Nom attribué automatiquement</p>
             <p className="mt-1 text-indigo-800/90">
-              Format : <strong>niveau</strong> + lettre de section{' '}
-              <strong>a</strong>, <strong>b</strong>, <strong>c</strong>… (ex.{' '}
-              <span className="font-mono text-xs bg-white/80 px-1.5 py-0.5 rounded">1re année a</span>, puis{' '}
+              Pour un même niveau, la lettre est la suivante disponible dans l&apos;ordre{' '}
+              <strong>a</strong>, <strong>b</strong>, <strong>c</strong>… (toutes les classes de ce niveau sont comptées, ex.{' '}
+              <span className="font-mono text-xs bg-white/80 px-1.5 py-0.5 rounded">1re année a</span> puis{' '}
               <span className="font-mono text-xs bg-white/80 px-1.5 py-0.5 rounded">1re année b</span>).
             </p>
           </div>

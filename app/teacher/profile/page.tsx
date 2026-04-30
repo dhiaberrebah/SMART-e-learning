@@ -3,6 +3,22 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { redirect } from 'next/navigation'
 import { getTeacherClasses } from '@/lib/teacher-classes'
 
+/** ISO YYYY-MM-DD uniquement ; année = 4 chiffres ; date valide ; pas après aujourd’hui (heure locale). */
+function sanitizeRecruitmentDateIso(raw: string): string | null {
+  const s = raw.trim()
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null
+  const year = parseInt(s.slice(0, 4), 10)
+  const month = parseInt(s.slice(5, 7), 10)
+  const day = parseInt(s.slice(8, 10), 10)
+  if (year < 1900 || month < 1 || month > 12 || day < 1 || day > 31) return null
+  const dt = new Date(year, month - 1, day)
+  if (dt.getFullYear() !== year || dt.getMonth() !== month - 1 || dt.getDate() !== day) return null
+  const endToday = new Date()
+  endToday.setHours(23, 59, 59, 999)
+  if (dt > endToday) return null
+  return s
+}
+
 async function updateProfile(formData: FormData) {
   'use server'
   const supabase = await createClient()
@@ -16,7 +32,18 @@ async function updateProfile(formData: FormData) {
   }
   const phone = ((formData.get('phone') as string) || '').trim() || null
   const address = ((formData.get('address') as string) || '').trim() || null
-  const rd = ((formData.get('recruitment_date') as string) || '').trim() || null
+  const rdRaw = ((formData.get('recruitment_date') as string) || '').trim() || ''
+  let recruitment_date: string | null = null
+  if (rdRaw) {
+    const sanitized = sanitizeRecruitmentDateIso(rdRaw)
+    if (!sanitized) {
+      redirect(
+        '/teacher/profile?error=' +
+          encodeURIComponent('Date de recrutement invalide (année sur 4 chiffres, entre 1900 et aujourd’hui).')
+      )
+    }
+    recruitment_date = sanitized
+  }
 
   const { error: updErr } = await db
     .from('profiles')
@@ -24,7 +51,7 @@ async function updateProfile(formData: FormData) {
       full_name: fullName,
       phone,
       address,
-      recruitment_date: rd,
+      recruitment_date,
     })
     .eq('id', user.id)
 
@@ -66,6 +93,10 @@ export default async function TeacherProfile({ searchParams }: { searchParams: P
   const { data: students } = classIds.length > 0
     ? await db.from('students').select('id, class_id').in('class_id', classIds)
     : Promise.resolve({ data: [] })
+
+  const endToday = new Date()
+  endToday.setHours(0, 0, 0, 0)
+  const recruitmentDateMaxIso = `${endToday.getFullYear()}-${String(endToday.getMonth() + 1).padStart(2, '0')}-${String(endToday.getDate()).padStart(2, '0')}`
 
   return (
     <div className="p-6 max-w-4xl mx-auto h-full overflow-y-auto">
@@ -128,12 +159,14 @@ export default async function TeacherProfile({ searchParams }: { searchParams: P
                 <input
                   type="date"
                   name="recruitment_date"
+                  min="1900-01-01"
+                  max={recruitmentDateMaxIso}
                   defaultValue={
                     profile?.recruitment_date
                       ? String(profile.recruitment_date).slice(0, 10)
                       : ''
                   }
-                  className="w-full border border-gray-400 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full max-w-[10.5rem] sm:max-w-[11.5rem] tabular-nums border border-gray-400 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent [&::-webkit-datetime-edit-year-field]:inline-block [&::-webkit-datetime-edit-year-field]:max-w-[4ch] [&::-webkit-datetime-edit-year-field]:overflow-hidden"
                 />
               </div>
               <div className="pt-4 border-t border-gray-100">

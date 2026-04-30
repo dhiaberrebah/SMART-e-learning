@@ -19,8 +19,7 @@ export default async function AnnouncementsPage({
       creator:profiles!events_created_by_fkey(full_name),
       targets:event_targets(
         target_type,
-        class:classes(name),
-        group:class_groups(name)
+        class:classes(name)
       )
     `
     )
@@ -152,7 +151,7 @@ export default async function AnnouncementsPage({
                             key={i}
                             className="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full"
                           >
-                            {t.class?.name || t.group?.name || t.target_type}
+                            {t.class?.name || t.target_type}
                           </span>
                         ))}
                       </div>

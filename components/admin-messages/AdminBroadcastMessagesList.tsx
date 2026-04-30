@@ -54,6 +54,10 @@ type Props = {
   accent: 'emerald' | 'blue'
   replyError?: string
   replySent?: boolean
+  /** After envoi via contact_messages (parcours enseignant) */
+  teacherContactSent?: boolean
+  /** Compose page for a new administration message */
+  newMessageHref?: string
 }
 
 export function AdminBroadcastMessagesList({
@@ -65,6 +69,8 @@ export function AdminBroadcastMessagesList({
   accent,
   replyError,
   replySent,
+  teacherContactSent,
+  newMessageHref,
 }: Props) {
   const ids = messages.map((m) => m.id)
   const repliesById = groupReplies(replyRows as BroadcastReplyRow[], ids)
@@ -79,16 +85,34 @@ export function AdminBroadcastMessagesList({
 
   return (
     <div className="p-6 max-w-3xl mx-auto h-full overflow-y-auto">
-      <div className="mb-6">
-        <Link href={dashboardHref} className={`text-sm mb-2 inline-block ${dashboardLinkClassName}`}>
-          ← Tableau de bord
-        </Link>
-        <h1 className="text-2xl font-bold text-gray-900">Messages administration</h1>
-        <p className="text-gray-500 mt-1 text-sm">
-          Communications de l&apos;équipe administrative. Vous pouvez répondre ci-dessous chaque message.
-        </p>
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <Link href={dashboardHref} className={`text-sm mb-2 inline-block ${dashboardLinkClassName}`}>
+            ← Tableau de bord
+          </Link>
+          <h1 className="text-2xl font-bold text-gray-900">Messages administration</h1>
+          <p className="text-gray-500 mt-1 text-sm">
+            Communications de l&apos;équipe administrative. Vous pouvez répondre ci-dessous chaque message.
+          </p>
+        </div>
+        {newMessageHref ? (
+          <Link
+            href={newMessageHref}
+            className={`shrink-0 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${btnPrimary}`}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Nouveau message
+          </Link>
+        ) : null}
       </div>
 
+      {teacherContactSent && (
+        <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-lg mb-6 text-sm">
+          ✓ Votre message a été transmis à l&apos;administration.
+        </div>
+      )}
       {replySent && (
         <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-lg mb-6 text-sm">
           ✓ Votre réponse a été envoyée.
