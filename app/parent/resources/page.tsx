@@ -247,7 +247,10 @@ function ResourceCard({ item }: { item: any }) {
 
             {item.file_path ? (
               <a
-                href={item.file_path}
+                href={
+                  `/api/pedagogical-content/${item.id}/access?mode=` +
+                  (isExternal ? 'view' : 'download')
+                }
                 target={isExternal ? '_blank' : undefined}
                 rel={isExternal ? 'noopener noreferrer' : undefined}
                 download={isLocal ? true : undefined}

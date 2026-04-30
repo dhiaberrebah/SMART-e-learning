@@ -59,7 +59,8 @@ export default function AdminTabLayout() {
       <Tabs.Screen
         name="announcements"
         options={{
-          title: 'Annonces',
+          title: 'Événements',
+          tabBarLabel: 'Annonces',
           tabBarIcon: ({ color }) => <TabIcon name="bullhorn" color={color} />,
         }}
       />

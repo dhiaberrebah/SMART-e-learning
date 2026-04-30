@@ -3,6 +3,10 @@
 import { useState, useRef, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import {
+  inferContentKindFromMime,
+  inferContentKindFromUrl,
+} from '@/lib/pedagogical-content-kind'
 
 export default function AddContentPage() {
   const router = useRouter()
@@ -80,6 +84,13 @@ export default function AddContentPage() {
       filePath = externalUrl.trim()
     }
 
+    let content_kind = 'other'
+    if (!useExternalUrl && mimeType) {
+      content_kind = inferContentKindFromMime(mimeType)
+    } else if (useExternalUrl && filePath?.trim()) {
+      content_kind = inferContentKindFromUrl(filePath.trim()) ?? 'other'
+    }
+
     const { error: dbErr } = await supabase.from('pedagogical_contents').insert({
       title,
       description: description || null,
@@ -88,6 +99,7 @@ export default function AddContentPage() {
       file_path: filePath,
       mime_type: mimeType,
       size_bytes: sizeBytes,
+      content_kind,
     })
 
     if (dbErr) { setError(dbErr.message); setLoading(false); setUploadProgress('idle'); return }
