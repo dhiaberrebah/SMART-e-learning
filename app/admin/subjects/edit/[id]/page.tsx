@@ -133,6 +133,10 @@ export default async function AdminEditSubjectPage({
                 </option>
               ))}
             </select>
+            <p className="text-xs text-gray-500 mt-1.5">
+              Plusieurs enseignants pour la même matière dans la classe : une entrée « matière » par enseignant
+              (« Nouvelle matière » depuis la liste ou la classe ; cases à cocher enseignants).
+            </p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Description</label>

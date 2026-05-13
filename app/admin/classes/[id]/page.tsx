@@ -22,7 +22,7 @@ export default async function ClassDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ success?: string; curriculum_error?: string }>
+  searchParams: Promise<{ success?: string; curriculum_error?: string; skipped_teachers?: string }>
 }) {
   const { id } = await params
   const sp = await searchParams
@@ -89,7 +89,12 @@ export default async function ClassDetailPage({
     <div className="p-6 max-w-7xl mx-auto">
       {sp.success && subjectSuccess[sp.success] && (
         <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-800 px-4 py-3 text-sm">
-          {subjectSuccess[sp.success]}
+          <span>{subjectSuccess[sp.success]}</span>
+          {sp.success === 'subject_added' && sp.skipped_teachers && Number(sp.skipped_teachers) > 0 ? (
+            <p className="mt-2 text-emerald-900/90">
+              {sp.skipped_teachers} enseignant(s) déjà associé(e)s à cette matière ont été ignoré(s).
+            </p>
+          ) : null}
         </div>
       )}
       {sp.curriculum_error && (

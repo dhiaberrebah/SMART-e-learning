@@ -8,25 +8,54 @@ async function handleAddSubject(formData: FormData) {
 
   const name = ((formData.get('name') as string) || '').trim()
   const classId = (formData.get('class_id') as string) || ''
-  const teacherId = (formData.get('teacher_id') as string) || ''
+  const teacherIds = [
+    ...new Set(
+      (formData.getAll('teacher_ids') as string[])
+        .map((id) => id.trim())
+        .filter(Boolean),
+    ),
+  ]
   const description = ((formData.get('description') as string) || '').trim() || null
 
-  if (!name || !classId || !teacherId) {
+  if (!name || !classId || teacherIds.length === 0) {
     redirect('/admin/subjects/add?error=missing')
   }
 
-  const { error } = await supabase.from('subjects').insert({
-    name,
-    class_id: classId,
-    teacher_id: teacherId,
-    description,
-  })
+  const { data: existing } = await supabase.from('subjects').select('name, teacher_id').eq('class_id', classId)
+
+  const nameNorm = name.trim().toLowerCase()
+  const taken = new Set(
+    (existing ?? [])
+      .filter((r) => (r.name ?? '').trim().toLowerCase() === nameNorm && r.teacher_id)
+      .map((r) => r.teacher_id as string),
+  )
+  const toCreate = teacherIds.filter((tid) => !taken.has(tid))
+  const skipped = teacherIds.length - toCreate.length
+
+  if (toCreate.length === 0) {
+    const msg =
+      skipped > 0
+        ? `Cette combinaison matière/classe existe déjà pour ${skipped} enseignant(s) sélectionné(s).`
+        : 'Aucune nouvelle attribution à créer.'
+    redirect(`/admin/subjects/add?error=${encodeURIComponent(msg)}`)
+  }
+
+  const { error } = await supabase.from('subjects').insert(
+    toCreate.map((teacher_id) => ({
+      name,
+      class_id: classId,
+      teacher_id,
+      description,
+    })),
+  )
 
   if (error) {
     redirect('/admin/subjects/add?error=' + encodeURIComponent(error.message))
   }
 
-  redirect(`/admin/classes/${classId}?success=subject_added`)
+  const qp =
+    skipped > 0 ? `?success=subject_added&skipped_teachers=${skipped}` : '?success=subject_added'
+  redirect(`/admin/classes/${classId}${qp}`)
 }
 
 export default async function AdminAddSubjectPage({
@@ -52,13 +81,13 @@ export default async function AdminAddSubjectPage({
         </Link>
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Nouvelle matière</h1>
-          <p className="text-gray-500 text-sm mt-0.5">Rattachée à une classe et un enseignant</p>
+          <p className="text-gray-500 text-sm mt-0.5">Rattachée à une classe et à un ou plusieurs enseignants</p>
         </div>
       </div>
 
       {sp.error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-          {sp.error === 'missing' ? 'Nom, classe et enseignant sont obligatoires.' : decodeURIComponent(sp.error)}
+          {sp.error === 'missing' ? 'Nom, classe et au moins un enseignant sont obligatoires.' : decodeURIComponent(sp.error)}
         </div>
       )}
 
@@ -97,20 +126,26 @@ export default async function AdminAddSubjectPage({
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Enseignant assigné <span className="text-red-500">*</span>
+              Enseignant(s) assigné(s) <span className="text-red-500">*</span>
             </label>
-            <select
-              name="teacher_id"
-              required
-              className="w-full px-4 py-2.5 border border-gray-400 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            >
-              <option value="">Sélectionner un enseignant</option>
-              {(teachers ?? []).map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.full_name}
-                </option>
-              ))}
-            </select>
+            <p className="text-xs text-gray-500 mb-2">
+              Cochez un ou plusieurs enseignants pour la même matière dans cette classe (une entrée par enseignant).
+            </p>
+            <div className="max-h-48 overflow-y-auto rounded-lg border border-gray-200 divide-y divide-gray-100">
+              {(teachers ?? []).length > 0 ? (
+                (teachers ?? []).map((t) => (
+                  <label
+                    key={t.id}
+                    className="flex items-center gap-3 px-3 py-2 text-sm hover:bg-gray-50 cursor-pointer"
+                  >
+                    <input type="checkbox" name="teacher_ids" value={t.id} className="rounded border-gray-300" />
+                    <span className="text-gray-900">{t.full_name}</span>
+                  </label>
+                ))
+              ) : (
+                <p className="px-3 py-2 text-sm text-gray-500">Aucun enseignant.</p>
+              )}
+            </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Description</label>

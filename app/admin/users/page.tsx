@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { normalizeAcademicYearKey } from '@/lib/class-name'
 import Link from 'next/link'
 
 const getRoleBadge = (role: string) => {
@@ -21,39 +22,100 @@ function sanitizeIlike(s: string) {
   return s.replace(/%/g, '').replace(/_/g, '').trim()
 }
 
+type UserRow = {
+  id: string
+  full_name: string | null
+  email: string | null
+  role: string
+  is_active?: boolean | null
+  created_at: string
+}
+
+async function distinctAcademicYears(supabase: Awaited<ReturnType<typeof createClient>>) {
+  const { data: rows } = await supabase.from('classes').select('academic_year')
+  const set = new Set<string>()
+  for (const r of rows ?? []) {
+    const k = normalizeAcademicYearKey(r.academic_year)
+    if (k) set.add(k)
+  }
+  return [...set].sort((a, b) => b.localeCompare(a, 'fr'))
+}
+
 export default async function UsersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ role?: string; q?: string; error?: string; success?: string }>
+  searchParams: Promise<{ role?: string; q?: string; year?: string; error?: string; success?: string }>
 }) {
   const sp = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
+  const academicYearOptions = await distinctAcademicYears(supabase)
   const roleFilter =
     sp.role && ['teacher', 'parent'].includes(sp.role) ? sp.role : ''
   const qRaw = sp.q ? sanitizeIlike(sp.q) : ''
+  const yearKeyRaw = normalizeAcademicYearKey(sp.year)
+  const yearFilter =
+    yearKeyRaw && academicYearOptions.includes(yearKeyRaw) ? yearKeyRaw : ''
 
-  let query = supabase
-    .from('profiles')
-    .select('*')
-    .in('role', ['teacher', 'parent'])
-    .order('created_at', { ascending: false })
+  let profileIdsForYear: string[] | null = null
+  if (yearFilter) {
+    const { data: classesForYear } = await supabase
+      .from('classes')
+      .select('id, teacher_id')
+      .eq('academic_year', yearFilter)
 
-  if (roleFilter) {
-    query = query.eq('role', roleFilter)
+    const classIds = (classesForYear ?? []).map((c) => c.id)
+    const fromTeachers = new Set<string>()
+    for (const c of classesForYear ?? []) {
+      if (c.teacher_id) fromTeachers.add(c.teacher_id)
+    }
+
+    const fromParents = new Set<string>()
+    if (classIds.length > 0) {
+      const { data: studs } = await supabase
+        .from('students')
+        .select('parent_id')
+        .in('class_id', classIds)
+      for (const s of studs ?? []) {
+        if (s.parent_id) fromParents.add(s.parent_id)
+      }
+    }
+
+    profileIdsForYear = [...new Set([...fromTeachers, ...fromParents])]
   }
-  if (qRaw) {
-    query = query.or(`full_name.ilike.%${qRaw}%,email.ilike.%${qRaw}%`)
+
+  let users: UserRow[] = []
+  let loadError: unknown = null
+
+  if (profileIdsForYear && profileIdsForYear.length === 0) {
+    users = []
+  } else {
+    let query = supabase
+      .from('profiles')
+      .select('*')
+      .in('role', ['teacher', 'parent'])
+      .order('created_at', { ascending: false })
+
+    if (profileIdsForYear) {
+      query = query.in('id', profileIdsForYear)
+    }
+    if (roleFilter) {
+      query = query.eq('role', roleFilter)
+    }
+    if (qRaw) {
+      query = query.or(`full_name.ilike.%${qRaw}%,email.ilike.%${qRaw}%`)
+    }
+
+    const res = await query
+    users = (res.data ?? []) as UserRow[]
+    loadError = res.error ?? null
   }
 
-  const { data: users, error } = await query
-
-  const list = users ?? []
   const counts = {
-    total: list.length,
-    teachers: list.filter((u) => u.role === 'teacher').length,
-    parents: list.filter((u) => u.role === 'parent').length,
+    total: users.length,
+    teachers: users.filter((u) => u.role === 'teacher').length,
+    parents: users.filter((u) => u.role === 'parent').length,
   }
 
   return (
@@ -106,6 +168,24 @@ export default async function UsersPage({
             <option value="teacher">Enseignants</option>
           </select>
         </div>
+        <div className="w-full sm:w-52">
+          <label htmlFor="user-year" className="block text-xs font-medium text-gray-500 mb-1">
+            Année scolaire (classes)
+          </label>
+          <select
+            id="user-year"
+            name="year"
+            defaultValue={yearFilter}
+            className="w-full px-3 py-2 border border-gray-400 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="">Toutes les années</option>
+            {academicYearOptions.map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </select>
+        </div>
         <div className="flex gap-2">
           <button
             type="submit"
@@ -113,7 +193,7 @@ export default async function UsersPage({
           >
             Filtrer
           </button>
-          {(roleFilter || (sp.q && sp.q.trim())) && (
+          {(roleFilter || (sp.q && sp.q.trim()) || yearFilter) && (
             <Link
               href="/admin/users"
               className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium"
@@ -138,7 +218,7 @@ export default async function UsersPage({
         ))}
       </div>
 
-      {error && (
+      {loadError && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 text-sm">
           Erreur lors du chargement des données
         </div>
@@ -159,7 +239,7 @@ export default async function UsersPage({
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
-            {users && users.length > 0 ? (
+            {users.length > 0 ? (
               users.map((u) => (
                 <tr key={u.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-5 py-3 whitespace-nowrap">
