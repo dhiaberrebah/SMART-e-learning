@@ -36,6 +36,9 @@ export default function AdminDashboard() {
   const [refreshing, setRefreshing] = useState(false)
 
   async function loadData() {
+    const activeProfiles = () =>
+      supabase.from('profiles').select('*', { count: 'exact', head: true }).or('is_active.is.null,is_active.eq.true')
+
     const [
       { count: totalUsers },
       { count: teachers },
@@ -47,10 +50,10 @@ export default function AdminDashboard() {
       { data: ru },
       { data: rs },
     ] = await Promise.all([
-      supabase.from('profiles').select('*', { count: 'exact', head: true }),
-      supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'teacher'),
-      supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'parent'),
-      supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'admin'),
+      activeProfiles(),
+      activeProfiles().eq('role', 'teacher'),
+      activeProfiles().eq('role', 'parent'),
+      activeProfiles().eq('role', 'admin'),
       supabase.from('students').select('*', { count: 'exact', head: true }),
       supabase.from('classes').select('*', { count: 'exact', head: true }),
       supabase.from('students').select('*', { count: 'exact', head: true }).not('class_id', 'is', null),

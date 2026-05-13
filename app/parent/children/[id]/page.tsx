@@ -16,7 +16,7 @@ export default async function ChildDetailPage({
     .from('students')
     .select(`
       *,
-      class:classes(id, name, grade_level, academic_year, teacher:profiles!classes_teacher_id_fkey(full_name, email))
+      class:classes(id, name, grade_level, academic_year, teacher_id, teacher:profiles!classes_teacher_id_fkey(id, full_name, email))
     `)
     .eq('id', id)
     .eq('parent_id', user!.id)
@@ -24,7 +24,9 @@ export default async function ChildDetailPage({
 
   if (!child) redirect('/parent/children')
 
-  const [{ data: attendance }, { data: grades }, { data: subjects }] = await Promise.all([
+  const classId = (child as { class?: { id?: string } }).class?.id ?? ''
+
+  const [{ data: attendance }, { data: grades }, { data: subjectRows }] = await Promise.all([
     supabase
       .from('attendance')
       .select('date, status, notes')
@@ -36,14 +38,16 @@ export default async function ChildDetailPage({
       .select(`*, subject:subjects(name)`)
       .eq('student_id', id)
       .order('date', { ascending: false }),
-    supabase
-      .from('subjects')
-      .select('id, name')
-      .eq('class_id', (child as any).class?.id || '')
-      .order('name'),
+    classId
+      ? supabase
+          .from('subjects')
+          .select('id, name, teacher_id, teacher:profiles!subjects_teacher_id_fkey(id, full_name, email)')
+          .eq('class_id', classId)
+          .order('name')
+      : Promise.resolve({ data: [] }),
   ])
 
-  // Attendance stats
+  const subjectData = subjectRows ?? []
   const presentCount = attendance?.filter(a => a.status === 'present').length || 0
   const absentCount = attendance?.filter(a => a.status === 'absent').length || 0
   const lateCount = attendance?.filter(a => a.status === 'late').length || 0
@@ -63,6 +67,66 @@ export default async function ChildDetailPage({
     acc[subName].push(g)
     return acc
   }, {}) || {}
+
+  type TeachingRow = {
+    id: string
+    full_name: string
+    email: string | null
+    subjects: string[]
+  }
+
+  const typedChild = child as {
+    class?: {
+      id?: string
+      name?: string
+      teacher_id?: string | null
+      teacher?: { id?: string; full_name?: string | null; email?: string | null } | null
+    } | null
+  }
+
+  const teachersFromSubjects = new Map<string, TeachingRow>()
+  for (const row of subjectData as {
+    name?: string | null
+    teacher_id?: string | null
+    teacher?: { id: string; full_name: string | null; email?: string | null } | null
+  }[]) {
+    const tid = row.teacher_id
+    const tp = row.teacher
+    const subName = (row.name ?? '').trim()
+    if (!tid || !tp?.full_name) continue
+    const prev = teachersFromSubjects.get(tid)
+    if (prev) {
+      if (subName && !prev.subjects.includes(subName)) prev.subjects.push(subName)
+    } else {
+      teachersFromSubjects.set(tid, {
+        id: tid,
+        full_name: tp.full_name,
+        email: tp.email ?? null,
+        subjects: subName ? [subName] : [],
+      })
+    }
+  }
+  for (const t of teachersFromSubjects.values()) {
+    t.subjects.sort((a, b) => a.localeCompare(b, 'fr'))
+  }
+
+  const refId = typedChild.class?.teacher_id ?? null
+  const refProfile = typedChild.class?.teacher
+  let teachersSorted = [...teachersFromSubjects.values()].sort((a, b) =>
+    a.full_name.localeCompare(b.full_name, 'fr'),
+  )
+
+  if (refId && refProfile?.full_name && !teachersFromSubjects.has(refId)) {
+    teachersSorted = [
+      ...teachersSorted,
+      {
+        id: refId,
+        full_name: refProfile.full_name,
+        email: refProfile.email ?? null,
+        subjects: ['Référent de classe'],
+      },
+    ].sort((a, b) => a.full_name.localeCompare(b.full_name, 'fr'))
+  }
 
   const statusColors: Record<string, string> = {
     present: 'bg-emerald-100 text-emerald-700',
@@ -131,7 +195,7 @@ export default async function ChildDetailPage({
           {[
             { label: 'N° élève', value: (child as any).student_number || '—' },
             { label: 'Date de naissance', value: (child as any).date_of_birth ? new Date((child as any).date_of_birth).toLocaleDateString('fr-FR') : '—' },
-            { label: 'Enseignant', value: (child as any).class?.teacher?.full_name || '—' },
+            { label: 'Référent classe', value: typedChild.class?.teacher?.full_name || '—' },
             { label: 'Année scolaire', value: (child as any).class?.academic_year || '—' },
           ].map(item => (
             <div key={item.label}>
@@ -141,6 +205,50 @@ export default async function ChildDetailPage({
           ))}
         </div>
       </div>
+
+      {typedChild.class?.id ? (
+        <div className="bg-white rounded-xl shadow-sm p-5 mb-6">
+          <h2 className="font-semibold text-gray-900 mb-2">Équipe pédagogique</h2>
+          <p className="text-xs text-gray-500 mb-4">
+            Enseignants liés aux matières de la classe {typedChild.class.name}
+            {typedChild.class.grade_level ? ` (${typedChild.class.grade_level})` : ''}.
+          </p>
+          {teachersSorted.length > 0 ? (
+            <ul className="divide-y divide-gray-100 rounded-lg border border-gray-100">
+              {teachersSorted.map((t) => (
+                <li key={t.id} className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 px-4 py-3">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">{t.full_name}</p>
+                    {t.email ? (
+                      <a href={`mailto:${t.email}`} className="text-xs text-emerald-600 hover:underline">
+                        {t.email}
+                      </a>
+                    ) : null}
+                  </div>
+                  {t.subjects.length > 0 ? (
+                    <div className="flex flex-wrap gap-1 sm:justify-end">
+                      {t.subjects.map((s) => (
+                        <span
+                          key={`${t.id}-${s}`}
+                          className="inline-block text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-100"
+                        >
+                          {s}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-xs text-gray-400">Matières à venir</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-gray-500">
+              Aucune matière avec enseignant assigné pour cette classe pour le moment.
+            </p>
+          )}
+        </div>
+      ) : null}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Attendance history */}

@@ -12,6 +12,10 @@ export default async function AdminDashboard() {
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6)
   const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0]
 
+  /** Aligné avec la liste utilisateurs : actif ⇔ `is_active` absent ou ≠ false */
+  const activeProfiles = () =>
+    supabase.from('profiles').select('*', { count: 'exact', head: true }).or('is_active.is.null,is_active.eq.true')
+
   const [
     { count: totalUsers },
     { count: teachersCount },
@@ -25,10 +29,10 @@ export default async function AdminDashboard() {
     { data: attendanceRaw },
     { data: classesWithStudents },
   ] = await Promise.all([
-    supabase.from('profiles').select('*', { count: 'exact', head: true }),
-    supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'teacher'),
-    supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'parent'),
-    supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'admin'),
+    activeProfiles(),
+    activeProfiles().eq('role', 'teacher'),
+    activeProfiles().eq('role', 'parent'),
+    activeProfiles().eq('role', 'admin'),
     supabase.from('students').select('*', { count: 'exact', head: true }),
     supabase.from('classes').select('*', { count: 'exact', head: true }),
     supabase.from('students').select('*', { count: 'exact', head: true }).not('class_id', 'is', null),
